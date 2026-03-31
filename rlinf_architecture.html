@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>RLinf 训练框架详解</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1f2937;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --cyan: #39c5cf;
+      --orange: #f0883e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── 导航 ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,0.95);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 4px;
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+    }
+    nav a {
+      color: var(--text-muted); text-decoration: none;
+      padding: 12px 10px; font-size: 13px; white-space: nowrap;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    nav a:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    nav .logo { color: var(--blue); font-weight: 700; font-size: 15px; margin-right: 12px; padding: 12px 0; }
+
+    /* ── 主体 ── */
+    main { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center; padding: 48px 24px 40px;
+      border-bottom: 1px solid var(--border); margin-bottom: 40px;
+    }
+    .hero h1 { font-size: 32px; color: var(--blue); margin-bottom: 8px; }
+    .hero .tagline { font-size: 16px; color: var(--text-muted); margin-bottom: 20px; }
+    .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .badge {
+      padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .badge-blue   { background: #1d3557; color: var(--blue);   border: 1px solid #1d4ed8; }
+    .badge-green  { background: #14291f; color: var(--green);  border: 1px solid #166534; }
+    .badge-yellow { background: #2a1f0a; color: var(--yellow); border: 1px solid #92400e; }
+    .badge-purple { background: #1e1433; color: var(--purple); border: 1px solid #6d28d9; }
+    .badge-red    { background: #2a1215; color: var(--red);    border: 1px solid #991b1b; }
+
+    /* ── Section ── */
+    section { margin-bottom: 56px; scroll-margin-top: 60px; }
+    h2 {
+      font-size: 22px; color: var(--blue);
+      border-left: 4px solid var(--blue); padding-left: 12px;
+      margin-bottom: 20px;
+    }
+    h3 { font-size: 16px; color: var(--text); margin: 20px 0 10px; }
+
+    /* ── 卡片 ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 14px; font-weight: 700;
+      color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: 12px;
+    }
+
+    /* ── Grid ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+    /* ── 图表容器 ── */
+    .diagram-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+      margin-bottom: 20px;
+    }
+    .diagram-header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; font-weight: 600; color: var(--blue);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .diagram-header .tag {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px;
+      background: #1d3557; color: var(--blue);
+    }
+    .diagram-body { padding: 12px 8px; }
+    .mermaid { display: flex; justify-content: center; }
+    /* 让 SVG 撑满容器、不留多余空白 */
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+    /* 时序图专属：收紧上下内边距 */
+    .diagram-body.seq { padding: 0; overflow-x: auto; }
+    .diagram-body.seq .mermaid svg { margin: 0; }
+
+    /* ── 注解框 ── */
+    .note {
+      background: #1a2535; border-left: 3px solid var(--blue);
+      border-radius: 0 6px 6px 0; padding: 12px 16px;
+      font-size: 13px; color: var(--text-muted); margin: 12px 0;
+    }
+    .note strong { color: var(--text); }
+    .warn {
+      background: #2a1a0a; border-left: 3px solid var(--yellow);
+      border-radius: 0 6px 6px 0; padding: 12px 16px;
+      font-size: 13px; color: #d4a85c; margin: 12px 0;
+    }
+    .warn strong { color: var(--yellow); }
+
+    /* ── 流程对比 ── */
+    .flow-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .flow-compare { grid-template-columns: 1fr; } }
+    .flow-box {
+      background: var(--surface2); border-radius: 8px; padding: 16px;
+      border: 1px solid var(--border);
+    }
+    .flow-box h4 { font-size: 13px; margin-bottom: 10px; }
+    .flow-box.blue h4  { color: var(--blue); }
+    .flow-box.green h4 { color: var(--green); }
+    .flow-box.purple h4{ color: var(--purple); }
+    .flow-box.orange h4{ color: var(--orange); }
+    .flow-step {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 0; font-size: 13px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .step-num {
+      min-width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .blue  .step-num { background: #1d3557; color: var(--blue); }
+    .green .step-num { background: #14291f; color: var(--green); }
+    .purple.step-num { background: #1e1433; color: var(--purple); }
+    .orange .step-num { background: #2a1a00; color: var(--orange); }
+    .step-content { flex: 1; }
+    .step-title { font-weight: 600; color: var(--text); }
+    .step-desc { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+    .step-code {
+      font-family: 'Fira Code', monospace; font-size: 11px;
+      color: #7dd3fc; background: #0f1923; padding: 2px 6px;
+      border-radius: 3px; margin-top: 3px; display: inline-block;
+    }
+    .optional { color: var(--yellow); font-size: 11px; }
+    .ppo-only  { color: var(--purple); font-size: 11px; }
+
+    /* ── 代码块 ── */
+    pre {
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; overflow-x: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 13px; line-height: 1.6; margin: 12px 0;
+    }
+    .kw  { color: #ff7b72; }
+    .cm  { color: #8b949e; font-style: italic; }
+    .st  { color: #a5d6ff; }
+    .num { color: #79c0ff; }
+    .fn  { color: #d2a8ff; }
+    .var { color: #ffa657; }
+
+    /* ── 表格 ── */
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    th {
+      background: var(--surface2); color: var(--text-muted);
+      font-weight: 600; padding: 10px 14px; text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 9px 14px; border-bottom: 1px solid #21262d;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #161b22; }
+    td code {
+      font-family: 'Fira Code', monospace; font-size: 12px;
+      color: #7dd3fc; background: #0f1923; padding: 1px 5px; border-radius: 3px;
+    }
+
+    /* ── 标签 ── */
+    .tag-green  { background: #14291f; color: var(--green);  border: 1px solid #166534; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+    .tag-blue   { background: #1d3557; color: var(--blue);   border: 1px solid #1d4ed8; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+    .tag-purple { background: #1e1433; color: var(--purple); border: 1px solid #6d28d9; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+    .tag-yellow { background: #2a1f0a; color: var(--yellow); border: 1px solid #92400e; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+    .tag-red    { background: #2a1215; color: var(--red);    border: 1px solid #991b1b; padding: 1px 7px; border-radius: 10px; font-size: 11px; }
+
+    /* ── 配置字段 ── */
+    .cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 700px) { .cfg-grid { grid-template-columns: 1fr; } }
+    .cfg-block {
+      background: var(--surface2); border-radius: 6px; padding: 14px;
+      border: 1px solid var(--border);
+    }
+    .cfg-block .section-name {
+      font-size: 12px; font-weight: 700; color: var(--blue);
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px;
+    }
+    .cfg-field { display: flex; gap: 8px; padding: 3px 0; font-size: 12px; }
+    .cfg-key { color: #7dd3fc; font-family: monospace; min-width: 160px; }
+    .cfg-val { color: var(--text-muted); }
+
+    /* ── 分隔线 ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+    .source-ref {
+      font-size: 11px; color: var(--text-muted);
+      font-family: monospace; margin-top: 6px;
+    }
+    .source-ref a { color: #7dd3fc; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">RLinf</span>
+  <a href="#overview">概述</a>
+  <a href="#architecture">系统架构</a>
+  <a href="#reasoning-flow">推理/智能体训练流</a>
+  <a href="#embodied-flow">具身训练流</a>
+  <a href="#algo-compare">算法对比</a>
+  <a href="#placement">部署模式</a>
+  <a href="#weight-sync">权重同步</a>
+  <a href="#config">配置说明</a>
+  <a href="#quickstart">快速上手</a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════ HERO ══════════════════════════ -->
+<div class="hero">
+  <h1>RLinf 训练框架完全解析</h1>
+  <div class="tagline">面向具身 AI 与智能体 AI 的分布式强化学习基础设施 &nbsp;·&nbsp; v0.2.0</div>
+  <div class="badges">
+    <span class="badge badge-blue">Ray 分布式</span>
+    <span class="badge badge-green">PPO / GRPO / SAC</span>
+    <span class="badge badge-purple">FSDP / Megatron</span>
+    <span class="badge badge-yellow">vLLM / SGLang</span>
+    <span class="badge badge-red">15+ 仿真环境</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════ 1. 概述 ══════════════════════════ -->
+<section id="overview">
+  <h2>1. 项目概述</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">是什么</div>
+      <p style="font-size:14px; color:var(--text-muted)">
+        RLinf（Reinforcement Learning <b style="color:var(--text)">Inf</b>rastructure / <b style="color:var(--text)">Inf</b>inite）
+        是一个基于 <b style="color:var(--blue)">Ray</b> 的开源分布式 RL 训练框架，
+        同时支持 <b style="color:var(--green)">具身 AI</b>（机械臂、人形机器人）和
+        <b style="color:var(--purple)">智能体/推理 AI</b>（LLM 推理、代码生成、搜索）。
+      </p>
+      <div style="margin-top:12px; font-size:13px; color:var(--text-muted)">
+        相比现有框架，最高可获得 <b style="color:var(--yellow)">2.434×</b> 吞吐量提升。
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">核心设计理念</div>
+      <div style="font-size:13px">
+        <div style="display:flex; gap:8px; margin-bottom:8px; align-items:flex-start">
+          <span style="color:var(--blue); font-size:18px; line-height:1.2">①</span>
+          <span><b style="color:var(--text)">Worker 解耦</b>：Rollout、Actor、Reward、Critic 各自独立的 Ray Actor，互不干扰</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px; align-items:flex-start">
+          <span style="color:var(--green); font-size:18px; line-height:1.2">②</span>
+          <span><b style="color:var(--text)">Channel 通信</b>：Worker 间通过 FIFO Channel 异步传递数据，无需直接调用</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px; align-items:flex-start">
+          <span style="color:var(--purple); font-size:18px; line-height:1.2">③</span>
+          <span><b style="color:var(--text)">混合后端</b>：推理用 vLLM/SGLang，训练用 FSDP/Megatron，可任意组合</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:flex-start">
+          <span style="color:var(--orange); font-size:18px; line-height:1.2">④</span>
+          <span><b style="color:var(--text)">Hydra 配置</b>：所有组件通过 YAML 配置，支持层级覆盖，无需改代码</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">支持场景</div>
+      <div style="font-size:13px; color:var(--text-muted)">
+        <div style="color:var(--green); font-weight:600; margin-bottom:6px">具身 AI</div>
+        ManiSkill · LIBERO · IsaacLab · CALVIN · MetaWorld · RoboCasa · RoboTwin · Habitat · FrankaSim<br>
+        真实机器人：Franka 臂 · XSquare Turtle2 · Robotiq 夹爪
+        <div style="color:var(--blue); font-weight:600; margin:8px 0 6px">推理/智能体</div>
+        数学推理 · 代码生成 · 网络搜索 (SearchR1) · 多智能体 (WideSeek-R1)
+        <div style="color:var(--purple); font-weight:600; margin:8px 0 6px">监督微调</div>
+        VLA 微调 (Qwen2.5-VL/Qwen3-VL)
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">支持的 RL 算法</div>
+      <div style="font-size:13px">
+        <div style="margin-bottom:6px"><span class="tag-blue">On-Policy</span></div>
+        <div style="color:var(--text-muted); margin-bottom:8px">PPO · GRPO · DAPO · Reinforce++</div>
+        <div style="margin-bottom:6px"><span class="tag-purple">Off-Policy</span></div>
+        <div style="color:var(--text-muted)">SAC · CrossQ · RLPD · SAC-Flow · DSRL</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">支持的模型</div>
+      <div style="font-size:13px; color:var(--text-muted)">
+        <div style="color:var(--green); font-weight:600; margin-bottom:4px">具身 VLA</div>
+        OpenVLA · OpenPI (π₀/π₀.₅) · GR00T · LingBot-VLA · Dexbotic · CNN/MLP/Flow
+        <div style="color:var(--blue); font-weight:600; margin:6px 0 4px">语言推理</div>
+        Qwen2.5 · Qwen3 · Qwen3-MoE · DeepSeek-R1
+        <div style="color:var(--purple); font-weight:600; margin:6px 0 4px">视觉语言</div>
+        Qwen2.5-VL · Qwen3-VL
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 2. 系统架构 ══════════════════════════ -->
+<section id="architecture">
+  <h2>2. 系统整体架构</h2>
+
+  <div class="diagram-wrap">
+    <div class="diagram-header">
+      <span>整体分层架构</span>
+      <span class="tag">System Overview</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+    E1["examples/reasoning/main_grpo.py"] & E2["examples/embodiment/train_embodied_agent.py"] & E3["examples/sft/train_vla_sft.py"]
+    subgraph LAYER1["用户入口层"]
+        E1
+        E2
+        E3
+    end
+
+    subgraph LAYER2["Hydra 配置层  rlinf/config.py"]
+        C1["YAML 配置文件\ncluster / runner / algorithm\nenv / rollout / actor / reward / critic"]
+        C2["validate_cfg() 配置校验"]
+    end
+
+    subgraph LAYER3["Runner 编排层  rlinf/runners/"]
+        R1["ReasoningRunner\n推理/智能体训练"]
+        R2["EmbodiedRunner\n具身 RL"]
+        R3["SFTRunner\n监督微调"]
+    end
+
+    subgraph LAYER4["Ray 调度层  rlinf/scheduler/"]
+        S1["Cluster\n集群 GPU 管理"]
+        S2["ComponentPlacement\n组件分配策略"]
+        S3["Channel\n异步 FIFO 通信"]
+        S4["WorkerGroup\nWorker 集合管理"]
+    end
+
+    subgraph LAYER5["Worker 执行层  rlinf/workers/"]
+        W1["Rollout Worker\nvLLM/SGLang 推理"]
+        W2["Actor Worker\nFSDP/Megatron 训练"]
+        W3["Reward Worker\n奖励计算"]
+        W4["Inference Worker\nlogprob 重计算"]
+        W5["Critic Worker\n价值函数 PPO"]
+        W6["Env Worker\n环境仿真"]
+    end
+
+    subgraph LAYER6["混合引擎层  rlinf/hybrid_engines/"]
+        B1["FSDP"]
+        B2["Megatron-LM"]
+        B3["vLLM / SGLang"]
+    end
+
+    subgraph LAYER7["环境层  rlinf/envs/"]
+        EN1["仿真器\nManiSkill/LIBERO/Isaac..."]
+        EN2["真实机器人\nFranka/Turtle2"]
+        EN3["语言环境\nMath/Code/Search"]
+    end
+
+    LAYER1 -->|"Hydra 加载"| LAYER2
+    LAYER2 -->|"cfg"| LAYER3
+    LAYER3 -->|"创建并调度"| LAYER4
+    LAYER4 -->|"launch()"| LAYER5
+    W1 --> B3
+    W2 --> B1
+    W2 --> B2
+    W4 --> B1
+    W6 --> EN1 & EN2
+    W1 --> EN3
+
+    style LAYER1 fill:#1a2035,stroke:#58a6ff,color:#c9d1d9
+    style LAYER2 fill:#1a2035,stroke:#bc8cff,color:#c9d1d9
+    style LAYER3 fill:#1a2035,stroke:#3fb950,color:#c9d1d9
+    style LAYER4 fill:#1a2035,stroke:#f0883e,color:#c9d1d9
+    style LAYER5 fill:#1a2035,stroke:#f85149,color:#c9d1d9
+    style LAYER6 fill:#1a2035,stroke:#39c5cf,color:#c9d1d9
+    style LAYER7 fill:#1a2035,stroke:#d29922,color:#c9d1d9
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>核心机制：</strong> Runner 负责"指挥"，WorkerGroup 负责"执行"，Channel 负责"传递数据"。
+    Worker 之间从不直接调用，只通过 Channel 读写，天然支持异步并行。
+  </div>
+</section>
+
+<!-- ══════════════════════════ 3. 推理训练流 ══════════════════════════ -->
+<section id="reasoning-flow">
+  <h2>3. 推理/智能体 RL 训练流（ReasoningRunner）</h2>
+
+  <div class="warn">
+    <strong>关键更正：</strong>
+    权重同步（sync_weights）发生在每步的<b>最开始</b>（rollout 之前），而不是训练结束后。
+    这意味着每步 rollout 使用的是<b>上一步</b>训练完成后同步过来的最新策略权重。
+    <span class="source-ref">源码：reasoning_runner.py:450-451</span>
+  </div>
+
+  <div class="diagram-wrap">
+    <div class="diagram-header">
+      <span>完整训练步时序图（含 PPO 路径）</span>
+      <span class="tag">reasoning_runner.py:430-645</span>
+    </div>
+    <div class="diagram-body seq">
+      <div class="mermaid">
+%%{init: {'theme':'dark','sequence':{'fontSize':14,'actorFontSize':13,'messageFontSize':13,'actorMargin':30,'width':155,'height':42,'boxMargin':8,'noteMargin':8,'messageMargin':32,'mirrorActors':false,'wrap':true,'diagramMarginX':16,'diagramMarginY':8}}}%%
+sequenceDiagram
+    participant Runner as Runner 主循环
+    participant RW as Rollout Worker
+    participant REW as Reward Worker
+    participant INF as Inference Worker
+    participant CRINF as Critic Inference
+    participant ACT as Actor Worker
+    participant CRIT as Critic Worker
+
+    Note over Runner,CRIT: 每个训练步 global_step 开始
+
+    rect rgb(26, 37, 53)
+        Note over Runner,ACT: ① 权重同步（在 rollout 前，reasoning_runner.py:450）
+        Runner->>ACT: _sync_weights()
+        ACT-->>RW: sync_model_to_rollout → dataloader_channel 就绪
+        ACT-->>INF: sync_model_to_inference（若 recompute_logprobs=True）
+    end
+
+    rect rgb(20, 41, 31)
+        Note over Runner,REW: ② 数据准备 & 轨迹生成
+        Runner->>RW: put(RolloutRequest) via dataloader_channel
+        Note over RW: vLLM/SGLang 推理<br/>每条 prompt 生成 group_size 条回复
+        RW-->>REW: RolloutResult(response_ids, logprobs) via rollout_channel
+        Note over REW: 计算奖励信号（规则 / reward model）
+    end
+
+    alt recompute_logprobs = True（GRPO+KL 或 PPO）
+        rect rgb(42, 26, 10)
+            Note over INF: ③-A run_inference()：重计算 logprobs
+            REW-->>INF: RolloutResult+rewards via reward_channel
+            Note over INF: 重计算 prev_logprobs<br/>kl_beta>0 时额外算 ref_logprobs
+        end
+    else recompute_logprobs = False（标准 GRPO）
+        Note over REW: ③-B 跳过 Inference Worker<br/>reward_channel 直连下一阶段
+    end
+
+    alt use_critic_model = True（PPO）
+        rect rgb(30, 20, 51)
+            Note over CRINF,CRIT: ④ PPO 专属路径
+            INF-->>CRINF: RolloutResult via inference_channel
+            Note over CRINF: 价值函数前向：计算 value estimates
+            par Pipeline 模式：Actor 与 Critic 并行训练
+                CRINF-->>ACT: via actor_training_channel
+                Note over ACT: GAE advantages → policy loss → 梯度更新
+            and
+                CRINF-->>CRIT: via critic_training_channel
+                Note over CRIT: value loss → 梯度更新
+            end
+        end
+    else use_critic_model = False（GRPO / Reinforce++ / DAPO）
+        rect rgb(20, 35, 20)
+            Note over ACT: ④ GRPO 路径
+            INF-->>ACT: RolloutResult via reward/inference_channel
+            Note over ACT: 组内归一化 advantages → policy loss → 梯度更新
+        end
+    end
+
+    ACT-->>Runner: actor_metrics（rollout 指标 + 训练指标）handle.wait()
+    Runner->>Runner: global_step += 1 · 记录指标 · 按需保存 checkpoint
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>异步执行：</strong>
+    rollout()、compute_rewards()、run_inference() 返回的是 <code>Handle</code> 对象（异步句柄），
+    只有在需要结果时才调用 <code>.wait()</code>。各阶段通过 Channel 流水线衔接，
+    不需要强制等待前一阶段全部完成。
+    <span class="source-ref">源码：reasoning_runner.py:457-544</span>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 4. 具身训练流 ══════════════════════════ -->
+<section id="embodied-flow">
+  <h2>4. 具身 RL 训练流（EmbodiedRunner）</h2>
+
+  <div class="note">
+    <strong>与 ReasoningRunner 的核心区别：</strong>
+    具身场景引入了 <b>Env Worker</b> 与 <b>Rollout Worker</b> 的双向交互循环；
+    优势函数（GAE advantages）在 Actor Worker 内部计算，不需要独立 Critic Inference；
+    权重同步按 <code>weight_sync_interval</code> 间隔触发，不是每步都同步。
+    <span class="source-ref">源码：embodied_runner.py:251-298</span>
+  </div>
+
+  <div class="diagram-wrap">
+    <div class="diagram-header">
+      <span>具身 RL 训练步流程图</span>
+      <span class="tag">embodied_runner.py</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TD
+    START(["开始 step _step"])
+
+    subgraph SYNC["① 条件性权重同步"]
+        S1{{"_step % weight_sync_interval == 0 ?"}}
+        S2["update_rollout_weights()\nActor → Rollout Worker"]
+        S3["跳过同步"]
+        S1 -->|是| S2
+        S1 -->|否| S3
+    end
+
+    subgraph INTERACT["② 环境交互（双向并行）"]
+        direction LR
+        E1["Env Worker\nenv.interact()\n接收动作 → step() → 返回 obs/reward/done"]
+        R1["Rollout Worker\nrollout.generate()\n接收 obs → 推理 → 发出动作"]
+        AC1["Actor Worker\nrecv_rollout_trajectories()\n收集完整轨迹到本地 Buffer"]
+        E1 <-->|"env_channel ↔ rollout_channel"| R1
+        R1 -->|actor_channel| AC1
+    end
+
+    subgraph ADV["③ 优势计算（Actor Worker 内部）"]
+        A1["actor.compute_advantages_and_returns()\n使用 GAE (γ & λ) 计算优势\n计算 discounted returns"]
+    end
+
+    subgraph TRAIN["④ 策略训练"]
+        T1["actor.run_training()\n计算 policy loss (PPO/SAC/GRPO)\n反向传播 + 梯度裁剪\n优化器更新"]
+    end
+
+    END1(["global_step += 1\n记录指标 / 保存 checkpoint"])
+
+    START --> SYNC
+    S2 --> INTERACT
+    S3 --> INTERACT
+    INTERACT --> ADV
+    ADV --> TRAIN
+    TRAIN --> END1
+    END1 -->|"下一 step"| START
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-compare" style="margin-top:16px">
+    <div class="flow-box green">
+      <h4>具身 RL (EmbodiedRunner)</h4>
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">条件权重同步</div>
+          <div class="step-desc">每 weight_sync_interval 步同步一次</div>
+          <div class="step-code">cfg.runner.weight_sync_interval</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Env + Rollout 双向交互</div>
+          <div class="step-desc">Rollout 推理动作 → Env 执行 → 返回 obs/reward</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Actor 内计算优势</div>
+          <div class="step-desc">GAE advantages + discounted returns</div>
+          <div class="step-code">compute_advantages_and_returns()</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Actor 策略训练</div>
+          <div class="step-desc">PPO/SAC/GRPO loss，梯度更新</div>
+        </div>
+      </div>
+    </div>
+    <div class="flow-box blue">
+      <h4>推理/智能体 RL (ReasoningRunner)</h4>
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">每步权重同步</div>
+          <div class="step-desc">每步训练前必定同步</div>
+          <div class="step-code">_sync_weights()</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Rollout Worker 生成序列</div>
+          <div class="step-desc">vLLM/SGLang 批量生成 group_size 条回复</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Reward Worker 计算奖励</div>
+          <div class="step-desc">规则/模型打分</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Inference Worker 重计算 logprobs</div>
+          <div class="step-desc optional">可选，由 recompute_logprobs 控制</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Critic Inference + 训练</div>
+          <div class="step-desc ppo-only">仅 PPO：计算 values、GAE advantages</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-title">Actor 策略训练</div>
+          <div class="step-desc">GRPO/PPO policy loss，梯度更新</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 5. 算法对比 ══════════════════════════ -->
+<section id="algo-compare">
+  <h2>5. 各算法实际执行路径对比</h2>
+
+  <div class="note">
+    <strong>关键配置项：</strong>
+    <code>cfg.algorithm.adv_type</code>（grpo/gae）、
+    <code>cfg.critic.use_critic_model</code>（是否启用 PPO Critic）、
+    <code>cfg.algorithm.recompute_logprobs</code>（是否重计算 logprobs）、
+    <code>cfg.algorithm.kl_beta</code>（> 0 则计算 ref_logprobs）
+  </div>
+
+  <div class="diagram-wrap">
+    <div class="diagram-header">
+      <span>不同算法下 ReasoningRunner 的实际数据流路径</span>
+      <span class="tag">条件分支来自源码 reasoning_runner.py:468-522</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TD
+    SW["sync_weights()\n每步开始同步权重"]
+    DL["DataLoader\n取 batch → dataloader_channel"]
+    RW["Rollout Worker\nvLLM/SGLang\n生成 group_size 条序列"]
+    REW["Reward Worker\n计算奖励信号"]
+
+    SW --> DL --> RW --> REW
+
+    REW --> B1{{"recompute_logprobs = True?"}}
+
+    B1 -->|"否 — 标准 GRPO"| B2
+    B1 -->|"是 — GRPO+KL / PPO"| INF["Inference Worker\n重计算 prev_logprobs\nkl_beta>0 时加算 ref_logprobs"]
+    INF --> B2
+
+    B2{{"use_critic_model = True?"}}
+
+    B2 -->|"否 — GRPO / Reinforce++ / DAPO"| ACT_GRPO["Actor Worker\nGRPO advantages 组内归一化\nPolicy loss + 梯度更新"]
+
+    B2 -->|"是 — PPO"| CRINF["Critic Inference\n计算 value estimates"]
+    CRINF --> B3{{"is_pipeline?"}}
+
+    B3 -->|"是 Disaggregated\nActor+Critic 并行"| ACT_PPO["Actor Worker\nGAE advantages\npolicy loss"]
+    B3 -->|"是 Disaggregated"| CRIT_PPO["Critic Worker\nvalue loss"]
+    B3 -->|"否 Collocated\nCritic 先 Actor 后"| ACT_PPO2["Critic 训练完\nActor 训练\nGAE advantages"]
+
+    style SW fill:#1a2035,stroke:#58a6ff,color:#c9d1d9
+    style DL fill:#1a2035,stroke:#58a6ff,color:#c9d1d9
+    style RW fill:#1a2035,stroke:#3fb950,color:#c9d1d9
+    style REW fill:#1a2035,stroke:#d29922,color:#c9d1d9
+    style INF fill:#1a2035,stroke:#f0883e,color:#c9d1d9
+    style CRINF fill:#1a2035,stroke:#bc8cff,color:#c9d1d9
+    style ACT_GRPO fill:#14291f,stroke:#3fb950,color:#c9d1d9
+    style ACT_PPO fill:#14291f,stroke:#bc8cff,color:#c9d1d9
+    style CRIT_PPO fill:#1e1433,stroke:#bc8cff,color:#c9d1d9
+    style ACT_PPO2 fill:#14291f,stroke:#bc8cff,color:#c9d1d9
+      </div>
+    </div>
+  </div>
+
+  <table style="margin-top:16px">
+    <thead>
+      <tr>
+        <th>算法</th>
+        <th>recompute_logprobs</th>
+        <th>use_critic_model</th>
+        <th>kl_beta</th>
+        <th>实际数据流路径</th>
+        <th>优势计算方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tag-green">标准 GRPO</span></td>
+        <td><code>False</code></td>
+        <td><code>False</code></td>
+        <td><code>0.0</code></td>
+        <td style="color:var(--text-muted)">DataLoader → Rollout → Reward → Actor</td>
+        <td style="color:var(--text-muted)">组内 reward 均值/标准差归一化</td>
+      </tr>
+      <tr>
+        <td><span class="tag-blue">GRPO + KL 惩罚</span></td>
+        <td><code>True</code></td>
+        <td><code>False</code></td>
+        <td><code>&gt; 0</code></td>
+        <td style="color:var(--text-muted)">→ Rollout → Reward → Inference(ref_logprobs) → Actor</td>
+        <td style="color:var(--text-muted)">GRPO + KL penalty 修正</td>
+      </tr>
+      <tr>
+        <td><span class="tag-yellow">Reinforce++ / DAPO</span></td>
+        <td><code>True</code></td>
+        <td><code>False</code></td>
+        <td><code>0.0</code></td>
+        <td style="color:var(--text-muted)">→ Rollout → Reward → Inference(prev_logprobs) → Actor</td>
+        <td style="color:var(--text-muted)">Reinforce 基线 / token-level</td>
+      </tr>
+      <tr>
+        <td><span class="tag-purple">PPO (Pipeline)</span></td>
+        <td><code>True</code></td>
+        <td><code>True</code></td>
+        <td>任意</td>
+        <td style="color:var(--text-muted)">→ … → Critic Inference → Actor + Critic 并行训练</td>
+        <td style="color:var(--text-muted)">GAE (γ · λ)</td>
+      </tr>
+      <tr>
+        <td><span class="tag-red">PPO (Collocated)</span></td>
+        <td><code>True</code></td>
+        <td><code>True</code></td>
+        <td>任意</td>
+        <td style="color:var(--text-muted)">→ … → Critic Inference → Critic 训练 → Actor 训练</td>
+        <td style="color:var(--text-muted)">GAE，Critic 先更新再算 Actor loss</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════════════ 6. 部署模式 ══════════════════════════ -->
+<section id="placement">
+  <h2>6. 部署模式（Placement Strategies）</h2>
+
+  <div class="note">
+    <strong>核心配置：</strong> <code>cluster.component_placement</code> 决定哪些组件部署在哪些节点/GPU 上。
+    格式为 <code>"worker1,worker2: node_spec"</code>，<code>all</code> 表示所有节点。
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px">
+
+    <!-- 模式① Collocated -->
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; overflow:hidden">
+      <div style="background:#1a2035; border-bottom:1px solid #30363d; padding:10px 14px">
+        <div style="color:#58a6ff; font-weight:700; font-size:14px">模式① Collocated</div>
+        <div style="color:#8b949e; font-size:12px; margin-top:2px">actor,rollout,reward: all</div>
+      </div>
+      <div style="padding:14px">
+        <div style="border:1px dashed #30363d; border-radius:6px; padding:10px; margin-bottom:10px">
+          <div style="color:#8b949e; font-size:11px; margin-bottom:6px">节点 0 · GPU 0-7（共享）</div>
+          <div style="display:flex; flex-direction:column; gap:4px">
+            <div style="background:#14291f; color:#3fb950; border:1px solid #166534; border-radius:4px; padding:5px 8px; font-size:12px">Actor Worker（FSDP 训练）</div>
+            <div style="background:#1a2744; color:#58a6ff; border:1px solid #1d4ed8; border-radius:4px; padding:5px 8px; font-size:12px">Rollout Worker（vLLM 推理）</div>
+            <div style="background:#2a1f0a; color:#d29922; border:1px solid #92400e; border-radius:4px; padding:5px 8px; font-size:12px">Reward Worker</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:#8b949e; line-height:1.5">
+          <span style="color:#3fb950">优点：</span>配置简单，省内存<br>
+          <span style="color:#f85149">缺点：</span>训练和推理争抢 GPU<br>
+          <span style="color:#d29922">适用：</span>单节点 / 快速验证
+        </div>
+      </div>
+    </div>
+
+    <!-- 模式② Disaggregated -->
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; overflow:hidden">
+      <div style="background:#1a2035; border-bottom:1px solid #30363d; padding:10px 14px">
+        <div style="color:#58a6ff; font-weight:700; font-size:14px">模式② Disaggregated</div>
+        <div style="color:#8b949e; font-size:12px; margin-top:2px">actor: node0 · rollout: node1</div>
+      </div>
+      <div style="padding:14px">
+        <div style="border:1px dashed #166534; border-radius:6px; padding:8px; margin-bottom:6px">
+          <div style="color:#3fb950; font-size:11px; margin-bottom:4px">节点 0 · GPU 0-3（训练）</div>
+          <div style="background:#14291f; color:#3fb950; border:1px solid #166534; border-radius:4px; padding:5px 8px; font-size:12px">Actor Worker（FSDP 训练）</div>
+        </div>
+        <div style="text-align:center; color:#6b7280; font-size:11px; margin:4px 0">sync_weights Bucket ~128MB</div>
+        <div style="border:1px dashed #1d4ed8; border-radius:6px; padding:8px; margin-bottom:10px">
+          <div style="color:#58a6ff; font-size:11px; margin-bottom:4px">节点 1 · GPU 0-7（推理）</div>
+          <div style="display:flex; flex-direction:column; gap:4px">
+            <div style="background:#1a2744; color:#58a6ff; border:1px solid #1d4ed8; border-radius:4px; padding:5px 8px; font-size:12px">Rollout Worker（vLLM）</div>
+            <div style="background:#1a2744; color:#58a6ff; border:1px solid #1d4ed8; border-radius:4px; padding:5px 8px; font-size:12px">Inference Worker（logprobs）</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:#8b949e; line-height:1.5">
+          <span style="color:#3fb950">优点：</span>训练/推理互不抢占 GPU<br>
+          <span style="color:#58a6ff">性能：</span>最高 2.434× 吞吐提升<br>
+          <span style="color:#d29922">适用：</span>多节点生产训练
+        </div>
+      </div>
+    </div>
+
+    <!-- 模式③ AUTO -->
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; overflow:hidden">
+      <div style="background:#1a2035; border-bottom:1px solid #30363d; padding:10px 14px">
+        <div style="color:#58a6ff; font-weight:700; font-size:14px">模式③ AUTO</div>
+        <div style="color:#8b949e; font-size:12px; margin-top:2px">component_placement: AUTO</div>
+      </div>
+      <div style="padding:14px">
+        <div style="border:1px dashed #6d28d9; border-radius:6px; padding:10px; margin-bottom:10px">
+          <div style="color:#bc8cff; font-size:11px; margin-bottom:6px">动态调度器</div>
+          <div style="background:#1e1433; color:#bc8cff; border:1px solid #6d28d9; border-radius:4px; padding:5px 8px; font-size:12px; margin-bottom:4px">SchedulerWorker</div>
+          <div style="color:#8b949e; font-size:11px; text-align:center; margin-top:6px">在线探测最优 Placement</div>
+        </div>
+        <div style="font-size:12px; color:#8b949e; line-height:1.5">
+          <span style="color:#3fb950">优点：</span>自适应，无需手动调参<br>
+          <span style="color:#58a6ff">工具：</span>run_placement_autotune.sh<br>
+          <span style="color:#d29922">适用：</span>不确定最优配置时
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card">
+      <div class="card-title">单节点配置示例</div>
+      <pre><span class="cm"># 所有组件共享一台机器所有 GPU</span>
+cluster:
+  num_nodes: <span class="num">1</span>
+  component_placement:
+    <span class="var">actor,rollout,reward</span>: all
+
+<span class="cm"># 具身场景同时包含 env worker</span>
+cluster:
+  num_nodes: <span class="num">1</span>
+  component_placement:
+    <span class="var">actor,env,rollout</span>: all</pre>
+    </div>
+    <div class="card">
+      <div class="card-title">多节点分离配置示例</div>
+      <pre><span class="cm"># 16 节点：训练和推理分离</span>
+cluster:
+  num_nodes: <span class="num">16</span>
+  component_placement:
+    <span class="var">actor,rollout,reward</span>: all
+
+<span class="cm"># 或精确指定节点</span>
+cluster:
+  num_nodes: <span class="num">4</span>
+  component_placement:
+    <span class="var">actor</span>: <span class="num">0</span>-<span class="num">1</span>     <span class="cm"># 节点 0-1 训练</span>
+    <span class="var">rollout</span>: <span class="num">2</span>-<span class="num">3</span>   <span class="cm"># 节点 2-3 推理</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 7. 权重同步机制 ══════════════════════════ -->
+<section id="weight-sync">
+  <h2>7. 权重同步机制</h2>
+
+  <div class="diagram-wrap">
+    <div class="diagram-header">
+      <span>Actor → Rollout/Inference Worker 权重同步流程</span>
+      <span class="tag">fsdp_actor_worker.py:239-349</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart LR
+    subgraph ACTOR["Actor Worker (FSDP 训练侧)"]
+        A1["训练完成\n获取 FSDP 全量 state_dict\n(allgather from shards)"]
+        A2["DTensor → Local Tensor\nbfloat16 精度转换"]
+        A3["按参数名分割成 Buckets\n每个 ~128MB 上限"]
+        A4["RankMapper\n确定目标 Worker 的 rank"]
+        A1 --> A2 --> A3 --> A4
+    end
+
+    subgraph TRANSFER["Ray 传输"]
+        T1["Bucket 0 → rank 0"]
+        T2["Bucket 1 → rank 0"]
+        TN["Bucket N → rank 0"]
+    end
+
+    subgraph ROLLOUT["Rollout Worker (vLLM/SGLang 侧)"]
+        R1["接收 Bucket 流"]
+        R2["重组 state_dict"]
+        R3["load_weights()\n更新推理引擎权重"]
+        R1 --> R2 --> R3
+    end
+
+    subgraph INF["Inference Worker (按需)"]
+        I1["握手确认需要哪些参数"]
+        I2["接收对应参数 Buckets"]
+        I3["load_weights()"]
+        I1 --> I2 --> I3
+    end
+
+    A4 --> T1 & T2 & TN
+    T1 & T2 & TN --> ROLLOUT
+    T1 & T2 & TN --> INF
+
+    SYNC_NOTE["同步时机（ReasoningRunner）\n每步 rollout 前必须完成\n_sync_weights() at step start"]
+    SYNC_NOTE2["同步时机（EmbodiedRunner）\n每 weight_sync_interval 步触发一次\n通常设为 1（每步都同步）"]
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 8. 配置说明 ══════════════════════════ -->
+<section id="config">
+  <h2>8. 配置文件详解（YAML）</h2>
+
+  <div class="note">
+    <strong>配置系统：</strong>使用 Hydra，支持 <code>defaults</code> 组合和命令行覆盖。
+    配置分为 7 大顶层字段，分别对应系统各层。
+  </div>
+
+  <div class="cfg-grid">
+    <div class="cfg-block">
+      <div class="section-name">cluster — 集群配置</div>
+      <div class="cfg-field"><span class="cfg-key">num_nodes</span><span class="cfg-val">节点数量（训练集群规模）</span></div>
+      <div class="cfg-field"><span class="cfg-key">component_placement</span><span class="cfg-val">组件 → GPU 节点分配策略</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">runner — 训练控制</div>
+      <div class="cfg-field"><span class="cfg-key">task_type</span><span class="cfg-val">reasoning / embodied / sft</span></div>
+      <div class="cfg-field"><span class="cfg-key">max_epochs / max_steps</span><span class="cfg-val">最大训练轮数/步数</span></div>
+      <div class="cfg-field"><span class="cfg-key">save_interval</span><span class="cfg-val">每多少步保存 checkpoint</span></div>
+      <div class="cfg-field"><span class="cfg-key">resume_dir</span><span class="cfg-val">断点续训目录（null / "auto" / 路径）</span></div>
+      <div class="cfg-field"><span class="cfg-key">weight_sync_interval</span><span class="cfg-val">权重同步间隔（具身专用）</span></div>
+      <div class="cfg-field"><span class="cfg-key">logger.logger_backends</span><span class="cfg-val">["tensorboard"] / ["wandb"] / ["swanlab"]</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">algorithm — RL 算法超参</div>
+      <div class="cfg-field"><span class="cfg-key">adv_type</span><span class="cfg-val">grpo / gae（PPO 用 gae）</span></div>
+      <div class="cfg-field"><span class="cfg-key">group_size</span><span class="cfg-val">每条 prompt 生成的样本数（GRPO: 8-16）</span></div>
+      <div class="cfg-field"><span class="cfg-key">kl_beta</span><span class="cfg-val">KL 惩罚系数（0 = 不加 KL）</span></div>
+      <div class="cfg-field"><span class="cfg-key">recompute_logprobs</span><span class="cfg-val">是否重计算 logprobs（PPO/GRPO+KL 需要 True）</span></div>
+      <div class="cfg-field"><span class="cfg-key">clip_ratio_high/low</span><span class="cfg-val">PPO clip 上/下界（通常 0.2）</span></div>
+      <div class="cfg-field"><span class="cfg-key">n_minibatches</span><span class="cfg-val">每步拆分的 minibatch 数</span></div>
+      <div class="cfg-field"><span class="cfg-key">normalize_advantages</span><span class="cfg-val">是否归一化优势（推荐 True）</span></div>
+      <div class="cfg-field"><span class="cfg-key">sampling_params.temperature</span><span class="cfg-val">生成温度（训练/评估可分别设置）</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">rollout — 推理引擎</div>
+      <div class="cfg-field"><span class="cfg-key">generation_backend</span><span class="cfg-val">vllm / sglang / huggingface</span></div>
+      <div class="cfg-field"><span class="cfg-key">model.model_path</span><span class="cfg-val">推理模型路径（HuggingFace 格式）</span></div>
+      <div class="cfg-field"><span class="cfg-key">model.precision</span><span class="cfg-val">bfloat16 / float16 / float32</span></div>
+      <div class="cfg-field"><span class="cfg-key">recompute_logprobs</span><span class="cfg-val">具身场景的 logprob 重计算开关</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">actor — 训练后端</div>
+      <div class="cfg-field"><span class="cfg-key">training_backend</span><span class="cfg-val">fsdp（小模型） / megatron（大模型）</span></div>
+      <div class="cfg-field"><span class="cfg-key">model.model_path</span><span class="cfg-val">训练模型路径</span></div>
+      <div class="cfg-field"><span class="cfg-key">micro_batch_size</span><span class="cfg-val">梯度累积的最小 batch</span></div>
+      <div class="cfg-field"><span class="cfg-key">global_batch_size</span><span class="cfg-val">等效全局 batch size</span></div>
+      <div class="cfg-field"><span class="cfg-key">optim.lr</span><span class="cfg-val">学习率（推荐 1e-6 ~ 1e-5）</span></div>
+      <div class="cfg-field"><span class="cfg-key">fsdp_config.sharding_strategy</span><span class="cfg-val">full_shard / hybrid_shard / no_shard</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">reward — 奖励模型</div>
+      <div class="cfg-field"><span class="cfg-key">use_reward_model</span><span class="cfg-val">false（规则奖励） / true（学习型奖励模型）</span></div>
+      <div class="cfg-field"><span class="cfg-key">reward_type</span><span class="cfg-val">math / code / vqa / chunk_level 等</span></div>
+      <div class="cfg-field"><span class="cfg-key">reward_scale</span><span class="cfg-val">奖励缩放系数</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">critic — 价值函数（仅 PPO）</div>
+      <div class="cfg-field"><span class="cfg-key">use_critic_model</span><span class="cfg-val">false（GRPO 不用）/ true（PPO 必须）</span></div>
+      <div class="cfg-field"><span class="cfg-key">training_backend</span><span class="cfg-val">fsdp / megatron</span></div>
+    </div>
+    <div class="cfg-block">
+      <div class="section-name">env — 具身环境（具身专用）</div>
+      <div class="cfg-field"><span class="cfg-key">train.total_num_envs</span><span class="cfg-val">并行训练环境数量</span></div>
+      <div class="cfg-field"><span class="cfg-key">train.max_episode_steps</span><span class="cfg-val">单 episode 最大步数（防截断）</span></div>
+      <div class="cfg-field"><span class="cfg-key">train.group_size</span><span class="cfg-val">每条任务采集的轨迹数（同 algorithm.group_size）</span></div>
+      <div class="cfg-field"><span class="cfg-key">eval.use_fixed_reset_state_ids</span><span class="cfg-val">评估时用固定初始状态（确保可重复）</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 9. 快速上手 ══════════════════════════ -->
+<section id="quickstart">
+  <h2>9. 快速上手</h2>
+
+  <div class="grid-2">
+    <div>
+      <h3 style="color:var(--green)">场景一：数学推理 GRPO 训练（Qwen2.5）</h3>
+      <pre><span class="cm"># 1. 安装</span>
+bash requirements/install.sh
+
+<span class="cm"># 2. 启动 Ray 集群（多节点时）</span>
+ray start --head --port=<span class="num">6379</span>
+<span class="cm"># 其他节点：</span>
+ray start --address=<span class="st">'head_ip:6379'</span>
+
+<span class="cm"># 3. 运行训练</span>
+bash examples/reasoning/run_main_grpo_math.sh \
+  qwen2.5-1.5b-grpo-megatron
+
+<span class="cm"># 或直接指定配置文件</span>
+python examples/reasoning/main_grpo.py \
+  --config-path examples/reasoning/config/math/ \
+  --config-name qwen2.5-1.5b-grpo-megatron \
+  actor.model.model_path=/path/to/model \
+  rollout.model.model_path=/path/to/model</pre>
+
+      <div class="note" style="margin-top:8px">
+        <strong>关键配置：</strong>该场景 <code>critic.use_critic_model=false</code>、
+        <code>algorithm.adv_type=grpo</code>，使用 Megatron 训练后端 + vLLM 推理，16 节点。
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--blue)">场景二：具身 RL 训练（LIBERO + π₀.₅）</h3>
+      <pre><span class="cm"># 安装具身依赖</span>
+bash requirements/embodied/install_libero.sh
+
+<span class="cm"># 设置路径</span>
+<span class="kw">export</span> EMBODIED_PATH=examples/embodiment
+
+<span class="cm"># 运行训练（GRPO 算法，π₀.₅ 模型）</span>
+python examples/embodiment/train_embodied_agent.py \
+  --config-path ${EMBODIED_PATH}/config/ \
+  --config-name libero_10_grpo_openpi_pi05 \
+  actor.model.model_path=/path/to/RLinf-Pi05-SFT \
+  rollout.model.model_path=/path/to/RLinf-Pi05-SFT
+
+<span class="cm"># 评估</span>
+python examples/embodiment/eval_embodied_agent.py \
+  --config-path ${EMBODIED_PATH}/config/ \
+  --config-name libero_10_grpo_openpi_pi05 \
+  runner.only_eval=True \
+  runner.ckpt_path=/path/to/checkpoint.pt</pre>
+    </div>
+  </div>
+
+  <hr>
+
+  <div class="grid-2">
+    <div>
+      <h3 style="color:var(--purple)">场景三：SearchR1 智能体训练</h3>
+      <pre><span class="cm"># 安装搜索相关依赖</span>
+bash requirements/agentic/install_search.sh
+
+<span class="cm"># 启动搜索服务（依赖外部搜索引擎）</span>
+python examples/agent/tools/search_server.py
+
+<span class="cm"># 启动训练</span>
+python examples/agent/searchr1/main_searchr1.py \
+  --config-path examples/agent/searchr1/config/ \
+  --config-name searchr1_qwen25</pre>
+    </div>
+    <div>
+      <h3 style="color:var(--orange)">断点续训 & Checkpoint</h3>
+      <pre><span class="cm"># 自动从最新 checkpoint 恢复</span>
+python examples/reasoning/main_grpo.py \
+  --config-name your_config \
+  runner.resume_dir=<span class="st">auto</span>
+
+<span class="cm"># 指定 checkpoint 路径恢复</span>
+python examples/reasoning/main_grpo.py \
+  --config-name your_config \
+  runner.resume_dir=<span class="st">../results/exp/checkpoints/global_step_100</span>
+
+<span class="cm"># Checkpoint 结构</span>
+checkpoints/
+  global_step_100/
+    actor/     <span class="cm"># Actor 模型权重</span>
+    critic/    <span class="cm"># Critic 权重（PPO）</span>
+    data/      <span class="cm"># DataLoader 状态（可恢复数据进度）</span></pre>
+    </div>
+  </div>
+
+  <hr>
+
+  <h3>常用命令行覆盖参数</h3>
+  <table>
+    <thead>
+      <tr><th>参数</th><th>示例</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>cluster.num_nodes</code></td><td><code>cluster.num_nodes=4</code></td><td>节点数量</td></tr>
+      <tr><td><code>algorithm.group_size</code></td><td><code>algorithm.group_size=16</code></td><td>每 prompt 生成样本数</td></tr>
+      <tr><td><code>algorithm.kl_beta</code></td><td><code>algorithm.kl_beta=0.001</code></td><td>KL 惩罚（0=不加）</td></tr>
+      <tr><td><code>actor.optim.lr</code></td><td><code>actor.optim.lr=5e-6</code></td><td>学习率</td></tr>
+      <tr><td><code>rollout.generation_backend</code></td><td><code>rollout.generation_backend=vllm</code></td><td>推理后端</td></tr>
+      <tr><td><code>runner.save_interval</code></td><td><code>runner.save_interval=50</code></td><td>保存间隔（步数）</td></tr>
+      <tr><td><code>runner.logger.logger_backends</code></td><td><code>"[wandb]"</code></td><td>日志后端</td></tr>
+      <tr><td><code>critic.use_critic_model</code></td><td><code>critic.use_critic_model=true</code></td><td>开启 PPO Critic</td></tr>
+      <tr><td><code>algorithm.recompute_logprobs</code></td><td><code>algorithm.recompute_logprobs=true</code></td><td>重计算 logprobs</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn" style="margin-top:20px">
+    <strong>常见陷阱：</strong>
+    使用 PPO（<code>critic.use_critic_model=true</code>）时，必须同时设置
+    <code>algorithm.recompute_logprobs=true</code>，否则 Critic 的 value 和 Actor 的 logprobs 会不对齐，
+    导致 GAE advantages 计算错误。
+  </div>
+</section>
+
+</main>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f2937',
+      primaryTextColor: '#c9d1d9',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#6b7280',
+      secondaryColor: '#374151',
+      tertiaryColor: '#1a2744',
+      background: '#0d1117',
+      mainBkg: '#161b22',
+      nodeBorder: '#3b82f6',
+      clusterBkg: '#1f2937',
+      titleColor: '#58a6ff',
+      edgeLabelBackground: '#1f2937',
+      actorBkg: '#1f2937',
+      actorBorder: '#3b82f6',
+      actorTextColor: '#c9d1d9',
+      actorLineColor: '#6b7280',
+      signalColor: '#93c5fd',
+      signalTextColor: '#e2e8f0',
+      labelBoxBkgColor: '#1f2937',
+      labelBoxBorderColor: '#3b82f6',
+      labelTextColor: '#c9d1d9',
+      loopTextColor: '#c9d1d9',
+      noteBkgColor: '#374151',
+      noteTextColor: '#c9d1d9',
+      noteBorderColor: '#6b7280',
+    },
+    flowchart: { curve: 'basis', padding: 16, useMaxWidth: true },
+    sequence: { actorMargin: 20, width: 145, height: 38, boxMargin: 6, messageMargin: 28, fontSize: 15, useMaxWidth: true },
+  });
+</script>
+</body>
+</html>
