@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ShallowPI / OpenPI 训练架构深度解析</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1f2937; --border:#30363d;
+  --text:#c9d1d9; --muted:#8b949e;
+  --blue:#58a6ff; --green:#3fb950; --yellow:#d29922;
+  --red:#f85149; --purple:#bc8cff; --orange:#f0883e; --cyan:#39c5cf;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Microsoft YaHei','Segoe UI',sans-serif;
+     background:var(--bg);color:var(--text);line-height:1.65;font-size:14px}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(13,17,23,.96);
+    border-bottom:1px solid var(--border);padding:0 24px;
+    display:flex;align-items:center;gap:2px;backdrop-filter:blur(8px);flex-wrap:wrap}
+nav .logo{color:var(--blue);font-weight:700;font-size:15px;margin-right:16px;padding:12px 0;white-space:nowrap}
+nav a{color:var(--muted);text-decoration:none;padding:12px 9px;font-size:12px;white-space:nowrap;
+      border-bottom:2px solid transparent;transition:all .18s}
+nav a:hover{color:var(--blue);border-bottom-color:var(--blue)}
+
+main{max-width:1440px;margin:0 auto;padding:28px 24px}
+
+.hero{text-align:center;padding:40px 24px 32px;border-bottom:1px solid var(--border);margin-bottom:36px}
+.hero h1{font-size:28px;color:var(--blue);margin-bottom:6px}
+.hero p{color:var(--muted);font-size:14px}
+.badges{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.bb{background:#1d3557;color:var(--blue);border:1px solid #1d4ed8}
+.bg{background:#14291f;color:var(--green);border:1px solid #166534}
+.bp{background:#1e1433;color:var(--purple);border:1px solid #6d28d9}
+.by{background:#2a1f0a;color:var(--yellow);border:1px solid #92400e}
+.bo{background:#2a1500;color:var(--orange);border:1px solid #9a3412}
+
+section{margin-bottom:52px;scroll-margin-top:56px}
+h2{font-size:20px;color:var(--blue);border-left:4px solid var(--blue);
+   padding-left:12px;margin-bottom:18px}
+h3{font-size:15px;color:var(--text);margin:20px 0 10px;
+   padding-left:10px;border-left:3px solid var(--surface2)}
+h4{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:9px;
+      padding:20px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+
+pre{background:#080d12;border:1px solid var(--border);border-radius:8px;
+    padding:16px;overflow-x:auto;font-family:'Fira Code','Consolas',monospace;
+    font-size:12.5px;line-height:1.7;margin:10px 0;tab-size:4}
+code{font-family:'Fira Code','Consolas',monospace;font-size:12px;
+     color:#7dd3fc;background:#0f1923;padding:1px 5px;border-radius:3px}
+
+/* syntax */
+.kw{color:#ff7b72} .cm{color:#6a737d;font-style:italic} .st{color:#a5d6ff}
+.num{color:#79c0ff} .fn{color:#d2a8ff} .var{color:#ffa657}
+.tp{color:#3fb950} .op{color:#f0883e} .sh{color:#f85149}
+
+.note{background:#1a2535;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;
+      padding:10px 14px;font-size:13px;color:var(--muted);margin:10px 0}
+.note strong{color:var(--text)}
+.warn{background:#2a1a0a;border-left:3px solid var(--yellow);border-radius:0 6px 6px 0;
+      padding:10px 14px;font-size:13px;color:#d4a85c;margin:10px 0}
+
+.dw{background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    overflow:hidden;margin-bottom:16px}
+.dh{padding:9px 16px;border-bottom:1px solid var(--border);
+    font-size:12px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:8px}
+.dh .tag{font-size:10px;padding:1px 7px;border-radius:10px;background:#1d3557;color:var(--blue)}
+.db{padding:12px 8px;overflow-x:auto}
+.db.tight{padding:0}
+.mermaid{display:flex;justify-content:center}
+.mermaid svg{max-width:100%;height:auto;display:block;margin:0 auto}
+
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+th{background:var(--surface2);color:var(--muted);font-weight:600;
+   padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:7px 12px;border-bottom:1px solid #21262d;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#161b22}
+
+.shape{display:inline-block;background:#1a2035;border:1px solid #1d4ed8;
+       color:var(--blue);border-radius:4px;padding:1px 7px;font-family:monospace;font-size:12px}
+.arrow{color:var(--orange);font-weight:700;margin:0 4px}
+
+.flow-chain{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:10px 0;font-size:13px}
+.fc-box{background:var(--surface2);border:1px solid var(--border);border-radius:5px;
+        padding:5px 10px;white-space:nowrap}
+.fc-arr{color:var(--orange);font-size:16px;font-weight:700}
+
+.ref{font-size:11px;color:var(--muted);font-family:monospace;
+     margin-top:5px;display:block}
+a.src{color:#7dd3fc;text-decoration:none}
+a.src:hover{text-decoration:underline}
+
+hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">ShallowPI / OpenPI</span>
+  <a href="#overview">概览</a>
+  <a href="#arch">整体架构</a>
+  <a href="#forward">正向传播</a>
+  <a href="#attention">注意力掩码</a>
+  <a href="#flow">Flow Matching</a>
+  <a href="#train-loop">训练循环</a>
+  <a href="#fsdp">FSDP</a>
+  <a href="#inference">推理解码</a>
+  <a href="#distill">知识蒸馏</a>
+  <a href="#shapes">张量速查</a>
+</nav>
+
+<main>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<div class="hero">
+  <h1>ShallowPI / OpenPI 训练架构深度解析</h1>
+  <p>Vision-Language-Action 模型 · Flow Matching · JAX/Flax NNX · FSDP</p>
+  <div class="badges">
+    <span class="badge bb">SigLIP 视觉编码</span>
+    <span class="badge bp">PaliGemma 语言主干</span>
+    <span class="badge bg">Flow Matching 动作生成</span>
+    <span class="badge by">Prefix-Suffix 注意力</span>
+    <span class="badge bo">JAX JIT + FSDP</span>
+  </div>
+</div>
+
+<!-- ═══════════════════ 1. 概览 ═══════════════════ -->
+<section id="overview">
+<h2>1. 项目概览与三种模型</h2>
+<div class="grid3">
+  <div class="card">
+    <h4 style="color:var(--blue)">π₀（Pi0）</h4>
+    <p style="font-size:13px;color:var(--muted)">
+      核心模型。SigLIP 视觉编码 + PaliGemma 语言主干 + 独立 Action Expert Gemma。
+      动作通过 <b style="color:var(--text)">Flow Matching（MSE Loss）</b> 学习，
+      action_horizon=50，action_dim=32。
+    </p>
+    <span class="ref">src/openpi/models/pi0.py</span>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--purple)">π₀.₅（Pi0.5）</h4>
+    <p style="font-size:13px;color:var(--muted)">
+      在 π₀ 基础上引入 <b style="color:var(--text)">AdaRMSNorm</b>（用 timestep embedding 调制归一化），
+      使 Action Expert 对扩散时间步更敏感。action_horizon 缩短至 10，
+      <code>discrete_state_input</code> 可选。
+    </p>
+    <span class="ref">src/openpi/models/pi0.py（pi05=True 分支）</span>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--green)">π₀-FAST（Pi0FAST）</h4>
+    <p style="font-size:13px;color:var(--muted)">
+      动作先用 FAST 分词器离散化成 token，然后用
+      <b style="color:var(--text)">自回归 Cross-Entropy Loss</b> 预测下一个动作 token，
+      类 LLM 训练方式，action_dim=8，action_horizon=16。
+    </p>
+    <span class="ref">src/openpi/models/pi0_fast.py</span>
+  </div>
+</div>
+
+<div class="note">
+  <strong>本文档聚焦 π₀ 主线架构。</strong>
+  π₀.₅ 在标注有「Pi05」的地方有差异，π₀-FAST 架构差异在第 5 节单独说明。
+</div>
+</section>
+
+<!-- ═══════════════════ 2. 整体架构 ═══════════════════ -->
+<section id="arch">
+<h2>2. 整体数据流架构</h2>
+
+<div class="dw">
+  <div class="dh"><span>训练期完整数据流（π₀）</span><span class="tag">pi0.py · gemma.py · siglip.py</span></div>
+  <div class="db tight">
+    <div class="mermaid">
+%%{init:{'theme':'dark','flowchart':{'curve':'basis','padding':18}}}%%
+flowchart TD
+    subgraph INPUT["输入数据"]
+        I1["图像 × 3\n224×224×3\nbase / left_wrist / right_wrist"]
+        I2["语言指令\ntokenized_prompt\n[B, 48] int tokens"]
+        I3["机器人状态 state\n[B, 32] float"]
+        I4["目标动作 actions\n[B, 50, 32] float"]
+    end
+
+    subgraph NOISE["Flow Matching 加噪"]
+        N1["采样时间步 t ~ Beta(1.5,1)\n[B] ∈ [0.001, 0.999]"]
+        N2["采样高斯噪声 ε ~ N(0,I)\n[B, 50, 32]"]
+        N3["线性插值加噪\nx_t = t·ε + (1-t)·actions\n[B, 50, 32]"]
+        N4["计算速度场目标\nu_t = ε - actions\n[B, 50, 32]"]
+        N1 --> N3
+        N2 --> N3
+        N2 --> N4
+        I4 --> N3 & N4
+    end
+
+    subgraph PREFIX["Prefix 嵌入  embed_prefix()"]
+        P1["SigLIP 视觉编码\n[B,256,1152] × 3"]
+        P2["Gemma 词嵌入\n[B,48,2048]"]
+        P3["Concat → [B, ~816, 2048]\nar_mask 全 0（双向注意力）"]
+        P1 --> P3
+        P2 --> P3
+    end
+
+    subgraph SUFFIX["Suffix 嵌入  embed_suffix()"]
+        S1["state_proj\n[B,32]→[B,1,2048]"]
+        S2["action_in_proj\n[B,50,32]→[B,50,2048]"]
+        S3["posemb_sincos(t)\n[B,2048]"]
+        S4["Action-Time MLP\nConcat+Linear+Swish+Linear\n[B,50,2048]"]
+        S5["Concat → [B,51,2048]\nar_mask=[True]+[False]×50"]
+        S2 --> S4
+        S3 --> S4
+        S4 --> S5
+        S1 --> S5
+    end
+
+    subgraph ATTN["注意力掩码构造  make_attn_mask()"]
+        A1["input_mask [B,867]\nprefix_mask concat suffix_mask"]
+        A2["ar_mask [867]\n前816个=0，第817个=1，后50个=0"]
+        A3["cumsum(ar_mask) → 块编号\nattn_mask[i,j] = (cumsum[j]<=cumsum[i])\nOutput: [B,867,867]"]
+        A1 --> A3
+        A2 --> A3
+    end
+
+    subgraph TRANSFORMER["PaliGemma Transformer  gemma.py\n18层 Gemma · d_model=2048 · GQA 8:1"]
+        T1["两路 Expert 同时进入\nPrefix [B,816,2048] + Suffix [B,51,2048]"]
+        T2["共享 QKV 权重\n合并序列 [B,867,2048]"]
+        T3["RoPE 位置编码\npositions [B,867]"]
+        T4["掩码自注意力\nattn_mask [B,867,867]\n18层循环"]
+        T5["分离输出\nprefix_out [B,816,2048]\nsuffix_out [B,51,2048]"]
+        T1 --> T2 --> T3 --> T4 --> T5
+    end
+
+    subgraph LOSS["动作预测 & 损失"]
+        L1["action_out_proj\nsuffix_out[:,-50:] → [B,50,32]\n预测速度场 v_t"]
+        L2["MSE Loss\nmean((v_t - u_t)²)\n→ [B,50] → 标量"]
+        L1 --> L2
+    end
+
+    I1 --> P1
+    I2 --> P2
+    I3 --> S1
+    N3 --> S2
+    N1 --> S3
+
+    PREFIX --> ATTN
+    SUFFIX --> ATTN
+    ATTN --> T4
+    P3 --> T1
+    S5 --> T1
+    T5 --> L1
+    N4 --> L2
+
+    style INPUT fill:#1a2035,stroke:#58a6ff,color:#c9d1d9
+    style NOISE fill:#1a2035,stroke:#f0883e,color:#c9d1d9
+    style PREFIX fill:#1a2035,stroke:#3fb950,color:#c9d1d9
+    style SUFFIX fill:#1a2035,stroke:#d29922,color:#c9d1d9
+    style ATTN fill:#1a2035,stroke:#bc8cff,color:#c9d1d9
+    style TRANSFORMER fill:#1a2035,stroke:#39c5cf,color:#c9d1d9
+    style LOSS fill:#1a2035,stroke:#f85149,color:#c9d1d9
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════════════ 3. 正向传播细节 ═══════════════════ -->
+<section id="forward">
+<h2>3. 正向传播：逐阶段张量变换</h2>
+
+<h3>3.1 SigLIP 视觉编码</h3>
+<div class="note">
+  <strong>文件：</strong><code>src/openpi/models/siglip.py</code> &nbsp;·&nbsp;
+  变体 <code>So400m/14</code>：27 层，1152 维，16 头，Patch=14
+</div>
+<pre>
+<span class="cm"># 输入：归一化到 [-1,1] 的 RGB 图像</span>
+image                <span class="shape">[B, 224, 224, 3]</span>
+
+<span class="cm"># ① Patch Embedding — Conv2D(stride=14)</span>
+patch_embed          <span class="shape">[B, 16, 16, 1152]</span>  <span class="cm"># 224/14=16 个 patch</span>
+reshape              <span class="shape">[B, 256, 1152]</span>     <span class="cm"># 16×16=256 个 token</span>
+
+<span class="cm"># ② 加 sin-cos 2D 位置编码</span>
+tokens + posemb      <span class="shape">[B, 256, 1152]</span>
+
+<span class="cm"># ③ 27 层 ViT Transformer（LayerNorm-first）</span>
+<span class="cm">#    MHSA(16 heads) + MLP(4×1152) + Dropout + Residual</span>
+vit_output           <span class="shape">[B, 256, 1152]</span>     <span class="cm"># pool_type="none"，保留所有 token</span>
+</pre>
+<span class="ref">siglip.py:208-290 — 每张图像独立编码，3 路并行，不共享权重</span>
+
+<h3>3.2 Prefix 嵌入拼接（embed_prefix）</h3>
+<pre>
+<span class="cm"># 3 路图像 token（1152-dim → PaliGemma LLM 输入需 2048-dim）</span>
+<span class="cm"># SigLIP 输出直接作为 PaliGemma 的 image tokens（内部已有投影层）</span>
+img_base        <span class="shape">[B, 256, 1152]</span>  ar_mask = <span class="num">False</span> × 256
+img_left_wrist  <span class="shape">[B, 256, 1152]</span>  ar_mask = <span class="num">False</span> × 256
+img_right_wrist <span class="shape">[B, 256, 1152]</span>  ar_mask = <span class="num">False</span> × 256
+
+<span class="cm"># 语言 token 嵌入（Gemma Embedder）</span>
+tokenized_prompt  <span class="shape">[B, 48]</span>
+→ embed_table[vocab=257152, 2048] + scale√2048
+→ lang_emb        <span class="shape">[B, 48, 2048]</span>  ar_mask = <span class="num">False</span> × 48
+
+<span class="cm"># 拼接所有 Prefix token</span>
+prefix_tokens = concat([img×3, lang_emb], axis=1)
+                <span class="shape">[B, 816, 2048]</span>   <span class="cm"># 256×3 + 48 = 816</span>
+prefix_ar_mask  <span class="shape">[816]</span>           <span class="cm"># 全 False（双向全注意力）</span>
+</pre>
+<span class="ref">pi0.py:106-137</span>
+
+<h3>3.3 Suffix 嵌入拼接（embed_suffix）</h3>
+<pre>
+<span class="cm"># ① 状态 token</span>
+obs.state       <span class="shape">[B, 32]</span>
+→ state_proj    Linear(32→2048)
+→ state_token   <span class="shape">[B, 1, 2048]</span>    ar_mask = <span class="tp">True</span>  <span class="cm"># 因果边界起点</span>
+
+<span class="cm"># ② 加噪动作 token</span>
+x_t             <span class="shape">[B, 50, 32]</span>    <span class="cm"># flow matching 加噪后的动作</span>
+→ action_in_proj  Linear(32→2048)
+→ action_tokens <span class="shape">[B, 50, 2048]</span>
+
+<span class="cm"># ③ 时间步嵌入（sin-cos 位置编码）</span>
+t               <span class="shape">[B]</span>             <span class="cm"># ∈ [0.001, 0.999]</span>
+→ posemb_sincos(t, dim=2048, min_period=4e-3, max_period=4.0)
+→ time_emb      <span class="shape">[B, 2048]</span>
+→ broadcast to  <span class="shape">[B, 50, 2048]</span>
+
+<span class="cm"># ④ Action-Time MLP（π₀ 非 pi05 模式）</span>
+concat([action_tokens, time_emb], axis=-1)  <span class="shape">[B, 50, 4096]</span>
+→ Linear(4096→2048) → Swish → Linear(2048→2048)
+→ action_time_tokens                        <span class="shape">[B, 50, 2048]</span>
+
+<span class="cm"># ⑤ 拼接 Suffix</span>
+suffix_tokens = concat([state_token, action_time_tokens], axis=1)
+              <span class="shape">[B, 51, 2048]</span>
+suffix_ar_mask  <span class="shape">[51]</span>  = [True, False×50]  <span class="cm"># 只有 state 是边界</span>
+</pre>
+<span class="ref">pi0.py:140-186 &nbsp;|&nbsp; pi05 模式下 AdaRMSNorm 接收 time_emb 作为调制信号</span>
+</section>
+
+<!-- ═══════════════════ 4. 注意力掩码 ═══════════════════ -->
+<section id="attention">
+<h2>4. Prefix-Suffix 注意力掩码机制</h2>
+
+<div class="note">
+  <strong>核心思想：</strong>Prefix（图像+语言）内部互相可见（双向），Suffix（状态+动作）内部因果有序，
+  但 Suffix 不能回看 Prefix，Prefix 也不能看到 Suffix。两路 Expert 共享同一套 Transformer 权重。
+</div>
+
+<h3>4.1 掩码构造逻辑</h3>
+<pre>
+<span class="cm"># make_attn_mask(input_mask, mask_ar)  — pi0.py:19-44</span>
+input_mask  <span class="shape">[B, 867]</span>  <span class="cm"># True=有效token，False=padding</span>
+mask_ar     <span class="shape">[867]</span>    <span class="cm"># True=此位置是因果组边界</span>
+
+<span class="cm"># mask_ar 具体值（以 π₀ 典型配置为例）：</span>
+<span class="cm"># [False×816(prefix),  True(state),  False×50(actions)]</span>
+<span class="cm">#  ^—— prefix 无边界 ——^  ^—— suffix 在 state 处起边界 ——^</span>
+
+cumsum = jnp.cumsum(mask_ar, axis=1)
+<span class="cm"># prefix 区域 cumsum=0, state 位置 cumsum=1, action 位置 cumsum=1</span>
+
+<span class="cm"># token i 能看到 token j 当且仅当：cumsum[j] <= cumsum[i]</span>
+attn_mask[b,i,j] = (cumsum[j] <= cumsum[i]) AND (input_mask[b,j])
+
+<span class="cm"># 最终掩码形状</span>
+attn_mask  <span class="shape">[B, 867, 867]</span>
+</pre>
+
+<h3>4.2 注意力可见性矩阵</h3>
+<div class="dw">
+  <div class="dh"><span>哪些 token 能看到哪些 token</span></div>
+  <div class="db">
+    <table>
+      <thead>
+        <tr><th>查询方 (Q)</th><th>能看到 Prefix 图像</th><th>能看到语言 token</th><th>能看到 state token</th><th>能看到 action token</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Prefix 图像 token</td><td style="color:var(--green)">✓ 全双向</td><td style="color:var(--green)">✓</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td></tr>
+        <tr><td>语言 token</td><td style="color:var(--green)">✓</td><td style="color:var(--green)">✓ 全双向</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td></tr>
+        <tr><td>state token</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓ 自身</td><td style="color:var(--red)">✗</td></tr>
+        <tr><td>action[i] token</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓ state</td><td style="color:var(--green)">✓ action[0..i]</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="warn">
+  <strong>为什么 Suffix 不能看 Prefix？</strong>
+  训练时 Prefix（观测）信息只作为背景条件，通过 KV Cache 缓存，
+  推理时只需对 Suffix 做 cross-attention 到缓存好的 Prefix KV，
+  避免动作序列直接参与 Prefix 的反向传播。
+</div>
+
+<h3>4.3 Transformer 内部：双 Expert 如何共享权重</h3>
+<pre>
+<span class="cm"># gemma.py:389-411 — Module.__call__</span>
+<span class="cm"># 两路输入在拼接后共同进入同一套 Transformer 权重</span>
+
+embedded = [prefix_tokens, suffix_tokens]
+<span class="cm"># prefix: [B, 816, 2048]  |  suffix: [B, 51, 2048]</span>
+
+<span class="cm"># 在 attention 内部合并为一个序列（pi0.py:209 传入 list）</span>
+<span class="cm"># gemma.py 内部对 list 做 jnp.concatenate → [B, 867, 2048]</span>
+x_all = concat([prefix, suffix], axis=1)  <span class="cm"># [B, 867, 2048]</span>
+
+<span class="cm"># 共享 Q/K/V 投影权重（每层一套）</span>
+q, k, v = qkv_einsum(<span class="st">"BSD,3KDH->3BSKH"</span>, x_all)
+<span class="cm"># 每个: [B, 867, num_kv_heads=1, heads=8, head_dim=256]</span>
+
+<span class="cm"># RoPE 旋转位置编码（基于 positions 绝对位置）</span>
+q = apply_rope(q, positions)  <span class="cm"># [B, 867, 8, 256]</span>
+k = apply_rope(k, positions)
+
+<span class="cm"># GQA 注意力（8:1 head ratio）</span>
+logits = einsum(<span class="st">"BTKGH, BSKH -> BKGTS"</span>, q, k)  <span class="cm"># [B,1,8,867,867]</span>
+logits = where(attn_mask, logits, <span class="num">-inf</span>)
+probs  = softmax(logits, axis=-1)
+out    = einsum(<span class="st">"BKGTS, BSKH -> BTKGH"</span>, probs, v)  <span class="cm"># [B,867,1,8,256]</span>
+out    = reshape → <span class="shape">[B, 867, 8, 256]</span> → proj → <span class="shape">[B, 867, 2048]</span>
+
+<span class="cm"># 最后分离出两路输出</span>
+prefix_out = out[:, :816, :]   <span class="shape">[B, 816, 2048]</span>
+suffix_out = out[:, 816:, :]   <span class="shape">[B, 51, 2048]</span>
+</pre>
+<span class="ref">gemma.py:158-250（Attention）, 284-333（Block）, 389-411（Module）</span>
+
+<h3>4.4 Gemma 每层 FFN 结构（GeGLU 变体）</h3>
+<pre>
+x_norm = RMSNorm(x)                                     <span class="shape">[B, T, 2048]</span>
+
+gate   = Linear_gate(x_norm)  → GELU                   <span class="shape">[B, T, 16384]</span>
+up     = Linear_up(x_norm)                              <span class="shape">[B, T, 16384]</span>
+hidden = gate * up                                      <span class="shape">[B, T, 16384]</span>
+out    = Linear_down(hidden)                            <span class="shape">[B, T, 2048]</span>
+
+x = x + out  <span class="cm"># Residual</span>
+</pre>
+</section>
+
+<!-- ═══════════════════ 5. Flow Matching ═══════════════════ -->
+<section id="flow">
+<h2>5. Flow Matching：如何学习动作生成</h2>
+
+<h3>5.1 训练期：加噪与损失</h3>
+<div class="dw">
+  <div class="dh"><span>Flow Matching 训练步</span><span class="tag">pi0.py:189-214</span></div>
+  <div class="db">
+    <div class="mermaid">
+%%{init:{'theme':'dark','flowchart':{'curve':'basis','padding':14}}}%%
+flowchart LR
+    A["目标动作 actions\n[B, 50, 32]"]
+    B["高斯噪声 ε\n[B, 50, 32]\n~N(0,I)"]
+    T["时间步 t\n[B]\n~Beta(1.5,1)×0.999+0.001"]
+
+    C["线性插值加噪\nx_t = t·ε + (1-t)·actions\n[B, 50, 32]"]
+    D["速度场目标\nu_t = ε - actions\n[B, 50, 32]"]
+
+    E["模型前向传播\nPaliGemma + Action Expert\nInput: x_t, t, obs"]
+    F["预测速度场 v_t\naction_out_proj\n[B, 50, 32]"]
+
+    G["MSE Loss\nmean((v_t - u_t)²)\n→ [B,50] → 标量"]
+
+    A --> C & D
+    B --> C & D
+    T --> C
+    C --> E
+    T --> E
+    E --> F
+    F --> G
+    D --> G
+
+    style E fill:#1a2035,stroke:#39c5cf,color:#c9d1d9
+    style G fill:#1a2035,stroke:#f85149,color:#c9d1d9
+    </div>
+  </div>
+</div>
+
+<pre>
+<span class="cm"># pi0.py:189-214 完整 compute_loss</span>
+<span class="kw">def</span> <span class="fn">compute_loss</span>(rng, observation, actions, *, train=<span class="tp">False</span>):
+    preprocess_rng, noise_rng, time_rng = jax.random.split(rng, <span class="num">3</span>)
+    observation = preprocess_observation(preprocess_rng, observation, train=train)
+
+    noise = jax.random.normal(noise_rng, actions.shape)         <span class="cm"># [B, 50, 32]</span>
+    time  = jax.random.beta(time_rng, <span class="num">1.5</span>, <span class="num">1</span>, batch_shape)       <span class="cm"># [B]</span>
+    time  = time * <span class="num">0.999</span> + <span class="num">0.001</span>                               <span class="cm"># ∈ [0.001, 0.999]</span>
+
+    x_t = time[...,<span class="kw">None</span>,<span class="kw">None</span>] * noise + (<span class="num">1</span> - time[...,<span class="kw">None</span>,<span class="kw">None</span>]) * actions
+    u_t = noise - actions                                        <span class="cm"># 真实速度方向</span>
+
+    prefix_tokens, prefix_mask, prefix_ar_mask = embed_prefix(observation)
+    suffix_tokens, suffix_mask, suffix_ar_mask, _ = embed_suffix(observation, x_t, time)
+
+    <span class="cm"># 拼接掩码 → [B, 867, 867]</span>
+    attn_mask = make_attn_mask(
+        concat([prefix_mask, suffix_mask], axis=<span class="num">1</span>),
+        concat([prefix_ar_mask, suffix_ar_mask], axis=<span class="num">0</span>)
+    )
+    positions = cumsum(input_mask, axis=<span class="num">1</span>) - <span class="num">1</span>
+
+    (_, suffix_out), _ = PaliGemma.llm(
+        [prefix_tokens, suffix_tokens], mask=attn_mask, positions=positions
+    )                                                            <span class="cm"># suffix_out: [B,51,2048]</span>
+
+    v_t = action_out_proj(suffix_out[:, <span class="num">-50</span>:])                  <span class="cm"># [B, 50, 32]</span>
+    <span class="kw">return</span> jnp.mean(jnp.square(v_t - u_t), axis=-<span class="num">1</span>)             <span class="cm"># [B, 50]</span>
+</pre>
+
+<div class="note">
+  <strong>Beta(1.5, 1) 时间步分布的意义：</strong>偏向 t→0（靠近目标动作端），
+  使网络在接近干净动作的区域多训练，类似于 EDM 的加权采样策略，提升生成质量。
+</div>
+
+<h3>5.2 π₀.₅ 的 AdaRMSNorm 调制（pi05 分支）</h3>
+<pre>
+<span class="cm"># pi05=True 时，时间步不再通过 Action-Time MLP 注入，</span>
+<span class="cm"># 而是通过 AdaRMSNorm 调制每层 Transformer 的归一化</span>
+
+time_emb = posemb_sincos(t, dim=2048)   <span class="cm"># [B, 2048]</span>
+adarms_cond = time_emb                  <span class="cm"># 传入 PaliGemma.llm 的 suffix expert</span>
+
+<span class="cm"># 在 AdaRMSNorm 内部（gemma.py）：</span>
+scale, shift, gate = Dense(3 * d_model)(adarms_cond)  <span class="cm"># [B, 2048] × 3</span>
+x_norm = RMSNorm(x)
+x_mod  = x_norm * (1 + scale[:, None, :]) + shift[:, None, :]
+<span class="cm"># gate 用于 residual 缩放</span>
+</pre>
+<span class="ref">pi0.py:162-178（pi05 分支）</span>
+
+<h3>5.3 π₀-FAST：自回归 Cross-Entropy 替代方案</h3>
+<pre>
+<span class="cm"># pi0_fast.py:198-233</span>
+<span class="cm"># 动作先用 FAST tokenizer 离散化</span>
+action_tokens_ids  <span class="shape">[B, T_action]</span>  <span class="cm"># int32, vocab内的动作token</span>
+
+<span class="cm"># 送入 PaliGemma 做 causal LM</span>
+logits = model(observation, tokenized_prompt)  <span class="shape">[B, T_total, vocab_size]</span>
+
+<span class="cm"># 只对动作部分计算 CE loss</span>
+targets   = one_hot(prompt[:, 1:], vocab_size)           <span class="shape">[B, T-1, V]</span>
+logp      = log_softmax(logits, axis=-1)
+token_loss = -sum(targets * logp, axis=-1)               <span class="shape">[B, T-1]</span>
+loss      = sum(token_loss * loss_mask) / sum(loss_mask) <span class="cm"># 只算动作 token</span>
+</pre>
+</section>
+
+<!-- ═══════════════════ 6. 训练循环 ═══════════════════ -->
+<section id="train-loop">
+<h2>6. 训练循环：从 train.py 到 JAX 梯度更新</h2>
+
+<h3>6.1 完整调用链</h3>
+<div class="flow-chain">
+  <div class="fc-box">main(config)</div><div class="fc-arr">→</div>
+  <div class="fc-box">jax.jit(train_step)</div><div class="fc-arr">→</div>
+  <div class="fc-box">nnx.value_and_grad(loss_fn)</div><div class="fc-arr">→</div>
+  <div class="fc-box">model.compute_loss()</div><div class="fc-arr">→</div>
+  <div class="fc-box">jnp.mean(chunked_loss)</div><div class="fc-arr">→</div>
+  <div class="fc-box">grads</div><div class="fc-arr">→</div>
+  <div class="fc-box">AdamW.update()</div><div class="fc-arr">→</div>
+  <div class="fc-box">optax.apply_updates()</div><div class="fc-arr">→</div>
+  <div class="fc-box">EMA update</div>
+</div>
+
+<h3>6.2 训练步核心代码</h3>
+<pre>
+<span class="cm"># train.py:137-191</span>
+<span class="kw">def</span> <span class="fn">train_step</span>(config, rng, state, batch):
+    model = nnx.merge(state.model_def, state.params)
+    model.train()  <span class="cm"># 开启 dropout 等训练行为</span>
+
+    <span class="kw">def</span> <span class="fn">loss_fn</span>(model, rng, observation, actions):
+        chunked_loss = model.compute_loss(rng, observation, actions, train=<span class="tp">True</span>)
+        <span class="cm"># chunked_loss: [B, 50]（每个 action horizon 步的 MSE）</span>
+        <span class="kw">return</span> jnp.mean(chunked_loss)  <span class="cm"># 标量</span>
+
+    train_rng = jax.random.fold_in(rng, state.step)  <span class="cm"># 每步不同随机数</span>
+    observation, actions = batch
+
+    <span class="cm"># ① 计算 loss 和梯度（只对 trainable 参数求导）</span>
+    diff_state = nnx.DiffState(<span class="num">0</span>, config.trainable_filter)
+    loss, grads = nnx.value_and_grad(loss_fn, argnums=diff_state)(
+        model, train_rng, observation, actions
+    )
+
+    <span class="cm"># ② AdamW 更新</span>
+    params     = state.params.filter(config.trainable_filter)
+    updates, new_opt_state = state.tx.update(grads, state.opt_state, params)
+    new_params = optax.apply_updates(params, updates)
+
+    <span class="cm"># ③ 写回 NNX 模型</span>
+    nnx.update(model, new_params)
+    new_params = nnx.state(model)
+
+    <span class="cm"># ④ EMA 影子参数更新（decay=0.99）</span>
+    <span class="kw">if</span> state.ema_decay <span class="kw">is not</span> <span class="tp">None</span>:
+        ema = jax.tree.map(
+            <span class="kw">lambda</span> old, new: state.ema_decay * old + (<span class="num">1</span> - state.ema_decay) * new,
+            state.ema_params, new_params
+        )
+
+    <span class="cm"># 诊断指标</span>
+    info = {
+        <span class="st">"loss"</span>:       loss,
+        <span class="st">"grad_norm"</span>:  optax.global_norm(grads),       <span class="cm"># 梯度全局范数</span>
+        <span class="st">"param_norm"</span>: optax.global_norm(kernel_params), <span class="cm"># 参数范数（2D以上）</span>
+    }
+    <span class="kw">return</span> new_state, info
+</pre>
+
+<h3>6.3 AdamW 优化器配置</h3>
+<pre>
+<span class="cm"># optimizer.py — AdamW 链式组合</span>
+tx = optax.chain(
+    optax.clip_by_global_norm(<span class="num">1.0</span>),    <span class="cm"># 梯度裁剪（防爆炸）</span>
+    optax.adamw(
+        learning_rate = lr_schedule,   <span class="cm"># 见下方</span>
+        b1 = <span class="num">0.9</span>,
+        b2 = <span class="num">0.95</span>,
+        eps = <span class="num">1e-8</span>,
+        weight_decay = <span class="num">1e-10</span>,          <span class="cm"># 约等于无</span>
+    )
+)
+
+<span class="cm"># Cosine Decay 学习率（以 π₀.₅ LIBERO 配置为例）</span>
+lr_schedule = CosineDecaySchedule(
+    warmup_steps = <span class="num">10_000</span>,   <span class="cm"># 线性 warmup</span>
+    peak_lr      = <span class="num">5e-5</span>,
+    decay_steps  = <span class="num">1_000_000</span>,
+    decay_lr     = <span class="num">5e-5</span>,     <span class="cm"># 末尾保持（不衰减至 0）</span>
+)
+<span class="cm"># π₀ 默认：warmup=1000, peak=2.5e-5, decay_steps=30000</span>
+</pre>
+
+<h3>6.4 训练状态结构</h3>
+<pre>
+TrainState:
+  step         int                  <span class="cm"># 当前步数</span>
+  params       NNX State            <span class="cm"># 模型参数（含 frozen，冻结的转 bfloat16）</span>
+  model_def    NNX GraphDef         <span class="cm"># 模型图结构（不序列化）</span>
+  tx           optax.GradientTx     <span class="cm"># 优化器定义（不序列化）</span>
+  opt_state    optax.OptState       <span class="cm"># AdamW 动量状态 (m, v)</span>
+  ema_decay    float | None         <span class="cm"># EMA 系数，None=关闭</span>
+  ema_params   NNX State | None     <span class="cm"># EMA 影子参数</span>
+</pre>
+</section>
+
+<!-- ═══════════════════ 7. FSDP ═══════════════════ -->
+<section id="fsdp">
+<h2>7. FSDP 分布式训练策略</h2>
+
+<h3>7.1 设备网格</h3>
+<pre>
+<span class="cm"># sharding.py:17-23</span>
+<span class="cm"># 示例：8 卡，fsdp_devices=4</span>
+mesh_shape = (<span class="num">8</span> // <span class="num">4</span>, <span class="num">4</span>) = (<span class="num">2</span>, <span class="num">4</span>)
+mesh = jax.make_mesh(mesh_shape, (<span class="st">"batch"</span>, <span class="st">"fsdp"</span>))
+
+<span class="cm"># batch 轴：数据并行（2 组）</span>
+<span class="cm"># fsdp  轴：模型分片（4 卡共同持有一份模型参数）</span>
+</pre>
+
+<h3>7.2 参数分片规则</h3>
+<pre>
+<span class="cm"># sharding.py:48-102 — fsdp_sharding()</span>
+<span class="cm"># 规则：小数组复制，大矩阵沿最大可整除轴分片</span>
+
+<span class="cm"># 复制（Replicated）：</span>
+bias [2048]              <span class="cm"># 1D，太小</span>
+posemb [1, 256, 1152]    <span class="cm"># 太小（< 4 MiB）</span>
+
+<span class="cm"># 分片（Sharded）：</span>
+embed_table [257152, 2048]   <span class="cm"># 沿 vocab 轴分片</span>
+qkv_proj    [8, 2048, 256]   <span class="cm"># 沿 head 轴分片</span>
+ffn_gate    [2048, 16384]    <span class="cm"># 沿 16384 轴分片</span>
+</pre>
+
+<h3>7.3 JIT 编译与 donate buffer</h3>
+<pre>
+ptrain_step = jax.jit(
+    train_step,
+    in_shardings  = (replicated, state_sharding, data_sharding),
+    out_shardings = (state_sharding, replicated),
+    donate_argnums = (<span class="num">1</span>,),   <span class="cm"># donate state buffer → 节省一份内存</span>
+)
+<span class="cm"># donate_argnums：输入的 state buffer 在输出后立即释放并复用，</span>
+<span class="cm"># 避免训练时同时持有新旧两份参数。</span>
+</pre>
+</section>
+
+<!-- ═══════════════════ 8. 推理解码 ═══════════════════ -->
+<section id="inference">
+<h2>8. 推理期：KV Cache + 迭代去噪</h2>
+
+<h3>8.1 两阶段推理</h3>
+<div class="two-col">
+<div>
+<h4>阶段①：Prefix Prefill（只做一次）</h4>
+<pre>
+<span class="cm"># pi0.py:234-237</span>
+prefix_tokens, prefix_mask, prefix_ar_mask = embed_prefix(obs)
+prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+positions = cumsum(prefix_mask) - <span class="num">1</span>
+
+<span class="cm"># 只对 prefix 做前向，返回每层 KV cache</span>
+_, kv_cache = PaliGemma.llm(
+    [prefix_tokens, <span class="kw">None</span>],
+    mask=prefix_attn_mask,
+    positions=positions
+)
+<span class="cm"># kv_cache: 18层 × (K [B,816,8,256], V [B,816,8,256])</span>
+</pre>
+</div>
+<div>
+<h4>阶段②：迭代去噪（num_steps=10 次）</h4>
+<pre>
+x_t = noise ~ N(0,I)    <span class="cm"># [B, 50, 32], t=1.0</span>
+dt = <span class="num">-0.1</span>               <span class="cm"># 每步 Δt</span>
+
+<span class="kw">for</span> step in range(<span class="num">10</span>):  <span class="cm"># t: 1.0 → 0.1</span>
+    suffix_tokens, ... = embed_suffix(obs, x_t, t)
+    <span class="cm"># 构造 cross-attn mask: suffix → prefix KV cache</span>
+    full_mask = concat([prefix_mask, suffix_mask], axis=-<span class="num">1</span>)
+    <span class="cm"># [B, 51, 867]</span>
+
+    (_, suffix_out), _ = PaliGemma.llm(
+        [<span class="kw">None</span>, suffix_tokens],
+        mask=full_mask,
+        kv_cache=kv_cache,   <span class="cm"># 复用 prefix 缓存</span>
+    )
+    v_t = action_out_proj(suffix_out[:, <span class="num">-50</span>:])  <span class="cm"># [B,50,32]</span>
+
+    <span class="cm"># Euler ODE step：沿速度场方向走一步</span>
+    x_t = x_t + dt * v_t
+    t   = t + dt
+
+<span class="kw">return</span> x_t  <span class="cm"># [B, 50, 32] 最终动作</span>
+</pre>
+</div>
+</div>
+
+<div class="note">
+  <strong>KV Cache 加速原理：</strong>
+  Prefix（图像+语言，816 个 token）的 Key/Value 在每次动作生成时是固定的，
+  只需计算一次并缓存。每次去噪迭代只需对 51 个 Suffix token 做计算，
+  再通过 cross-attention 查询缓存好的 Prefix KV。
+  整体推理复杂度从 O(867²) × 10 次降低到 O(816²) + O(51 × 867) × 10 次。
+</div>
+</section>
+
+<!-- ═══════════════════ 9. 知识蒸馏 ═══════════════════ -->
+<section id="distill">
+<h2>9. 知识蒸馏（Shallow-π）：从 18 层压缩到 6 层</h2>
+
+<div class="note">
+  <strong>项目名称来源：</strong>这个仓库叫 <b>shallowpi</b>，
+  正是因为它的核心目标是把 π₀/π₀.₅ 的 18 层 Gemma 压缩成 6 层（"浅"模型），
+  用知识蒸馏在保持性能的前提下大幅降低推理延迟。
+  蒸馏实现在 <b>PyTorch</b> 端（区别于主模型的 JAX 实现）。
+</div>
+
+<h3>9.1 整体蒸馏架构</h3>
+<div class="dw">
+  <div class="dh"><span>Teacher-Student 训练框架</span><span class="tag">train_pytorch.py · pi0_pytorch.py</span></div>
+  <div class="db">
+    <div class="mermaid">
+%%{init:{'theme':'dark','flowchart':{'curve':'basis','padding':16}}}%%
+flowchart TD
+    subgraph INIT["初始化阶段"]
+        T0["Teacher 模型\nPI0Pytorch(gemma_depth=18)\n从 .safetensors 加载完整权重\n.eval() 冻结，不接受梯度"]
+        S0["Student 模型\nDistilledPI0Pytorch(gemma_depth=6)\n通过层下采样初始化\n从 Teacher 权重第 0,3,6,9,12,15 层复制"]
+        T0 -->|"层下采样\nlinspace(0,17,6)→[0,3,6,9,12,15]"| S0
+    end
+
+    subgraph BATCH["每个训练 batch"]
+        OBS["同一份输入\nobservation + actions"]
+        TNOISE["采样相同 noise & time\n确保 Teacher/Student 看到完全相同的 x_t"]
+    end
+
+    subgraph TEACHER["Teacher 前向（torch.no_grad）"]
+        TE["teacher.eval_model(obs, actions, noise, time)"]
+        TV["v_t_teacher\n[B, action_horizon, action_dim]\nTeacher 预测的速度场"]
+        TE --> TV
+    end
+
+    subgraph STUDENT["Student 前向（需要梯度）"]
+        SE["student 完整前向\nembed_prefix + embed_suffix\n+ Transformer(6层) + action_out_proj"]
+        SV["v_t_student\n[B, action_horizon, action_dim]"]
+        SE --> SV
+    end
+
+    subgraph LOSS["双重 Loss 计算"]
+        GT["GT Loss\nMSE(u_t, v_t_student)\n与真实速度场对齐\nweight=1.0"]
+        KD["Distill Loss\nMSE(v_t_teacher, v_t_student)\n向 Teacher 输出靠拢\nweight=1.0"]
+        TOTAL["Total = GT Loss + Distill Loss"]
+        GT --> TOTAL
+        KD --> TOTAL
+    end
+
+    subgraph UPDATE["反向传播 & 更新"]
+        BP["loss.backward()"]
+        CLIP["clip_grad_norm_(max=1.0)"]
+        STEP["optimizer.step()"]
+        BP --> CLIP --> STEP
+    end
+
+    OBS --> TNOISE
+    TNOISE --> TEACHER & STUDENT
+    TV --> KD
+    SV --> GT & KD
+    TOTAL --> UPDATE
+
+    style INIT   fill:#1a2035,stroke:#58a6ff,color:#c9d1d9
+    style BATCH  fill:#1a2035,stroke:#3fb950,color:#c9d1d9
+    style TEACHER fill:#2a1215,stroke:#f85149,color:#c9d1d9
+    style STUDENT fill:#14291f,stroke:#3fb950,color:#c9d1d9
+    style LOSS   fill:#1a2035,stroke:#f0883e,color:#c9d1d9
+    style UPDATE fill:#1a2035,stroke:#bc8cff,color:#c9d1d9
+    </div>
+  </div>
+</div>
+
+<h3>9.2 学生模型定义</h3>
+<pre>
+<span class="cm"># pi0_config.py:112-117</span>
+@dataclasses.dataclass(frozen=<span class="tp">True</span>)
+<span class="kw">class</span> <span class="fn">DistilledPi0Config</span>(Pi0Config):
+    teacher_config: str     = <span class="st">"pi0_libero"</span>   <span class="cm"># Teacher 配置名</span>
+    loss_weight_gt: float   = <span class="num">1.0</span>            <span class="cm"># GT Loss 权重</span>
+    loss_weight_teacher: float = <span class="num">1.0</span>         <span class="cm"># 蒸馏 Loss 权重</span>
+    <span class="cm"># 继承自 Pi0Config，主要修改：</span>
+    <span class="cm">#   gemma_depth = 6  （覆盖父类默认 18）</span>
+
+<span class="cm"># 调用示例（training/config.py）</span>
+model = DistilledPi0Config(
+    teacher_config = <span class="st">"pi0_libero"</span>,
+    gemma_depth    = <span class="num">6</span>,              <span class="cm"># ← 关键：只用 6 层 Gemma</span>
+)
+
+<span class="cm"># DistilledPI0Pytorch 只是继承，区别在 forward() 里接收 teacher 参数</span>
+<span class="kw">class</span> <span class="fn">DistilledPI0Pytorch</span>(PI0Pytorch):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):
+        <span class="kw">super</span>().__init__(config)   <span class="cm"># 结构与父类完全一样，只是层数不同</span>
+</pre>
+<span class="ref">src/openpi/models/pi0_config.py:112 · src/openpi/models_pytorch/pi0_pytorch.py:516</span>
+
+<h3>9.3 层下采样初始化</h3>
+<div class="note">
+  <strong>核心问题：</strong>学生模型只有 6 层，但要从 18 层的教师权重初始化，不能直接 load_state_dict。
+  解决方案是用 <code>torch.linspace</code> 均匀采样教师的层编号。
+</div>
+<pre>
+<span class="cm"># train_pytorch.py — 权重加载时的层映射</span>
+l_teacher = <span class="num">18</span>   <span class="cm"># teacher gemma_depth</span>
+l_student = <span class="num">6</span>    <span class="cm"># student gemma_depth</span>
+
+layer_mapping = torch.linspace(<span class="num">0</span>, l_teacher - <span class="num">1</span>, steps=l_student).round().long().tolist()
+<span class="cm"># → [0, 3, 6, 9, 12, 15]</span>
+
+<span class="cm"># 对以下两组权重都做层映射：</span>
+<span class="cm">#   paligemma_with_expert.gemma_expert.model.layers.{i}.*</span>
+<span class="cm">#   paligemma_with_expert.paligemma.model.language_model.layers.{i}.*</span>
+<span class="kw">for</span> s_idx, t_idx <span class="kw">in</span> enumerate(layer_mapping):
+    <span class="cm"># student.layer[s_idx] ← teacher.layer[t_idx]</span>
+    filtered_state_dict[key_s] = state_dict[key_t]
+</pre>
+
+<div style="background:var(--surface2);border-radius:8px;padding:14px;margin:10px 0">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">层映射示意（18层→6层）</div>
+  <div style="display:flex;align-items:flex-end;gap:3px;height:80px">
+    <div style="display:flex;flex-direction:column;gap:2px;justify-content:flex-end">
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:4px">Teacher</div>
+      <div style="display:flex;gap:2px">
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L0</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L1</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L2</div>
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L3</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L4</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L5</div>
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L6</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L7</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L8</div>
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L9</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L10</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L11</div>
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L12</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L13</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L14</div>
+        <div style="width:28px;background:#1d3557;border:1px solid var(--blue);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--blue)">L15</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L16</div>
+        <div style="width:28px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px;font-size:10px;text-align:center;color:var(--muted)">L17</div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:6px">蓝色高亮 = 被学生模型采用的层（L0,L3,L6,L9,L12,L15）</div>
+</div>
+
+<h3>9.4 蒸馏 Loss 完整实现</h3>
+<pre>
+<span class="cm"># pi0_pytorch.py:520-585 — DistilledPI0Pytorch.forward()</span>
+<span class="kw">def</span> <span class="fn">forward</span>(self, observation, actions, teacher: PI0Pytorch, noise=<span class="tp">None</span>, time=<span class="tp">None</span>):
+
+    <span class="cm"># ① 采样噪声和时间步（两模型共享相同噪声！）</span>
+    noise = self.sample_noise(actions.shape, device)     <span class="cm"># [B, 50, 32]</span>
+    time  = self.sample_time(actions.shape[<span class="num">0</span>], device)   <span class="cm"># [B] ~ Beta(1.5,1)</span>
+
+    x_t = time[...,<span class="kw">None</span>,<span class="kw">None</span>] * noise + (<span class="num">1</span> - time[...,<span class="kw">None</span>,<span class="kw">None</span>]) * actions
+    u_t = noise - actions                                <span class="cm"># GT 速度场 [B, 50, 32]</span>
+
+    <span class="cm"># ② Teacher 前向（冻结，不计算梯度）</span>
+    <span class="kw">with</span> torch.no_grad():
+        v_t_teacher = teacher.eval_model(observation, actions, noise, time)
+        <span class="cm"># v_t_teacher: [B, 50, 32]  Teacher 预测的速度场</span>
+
+    <span class="cm"># ③ Student 前向（完整前向，需要梯度）</span>
+    prefix_embs, prefix_pad, prefix_att = self.embed_prefix(images, ...)
+    suffix_embs, suffix_pad, suffix_att, adarms = self.embed_suffix(state, x_t, time)
+
+    att_2d = make_att_2d_masks(...)   <span class="cm"># [B, 867, 867]（6层 Transformer）</span>
+    (_, suffix_out), _ = self.paligemma_with_expert.forward(
+        inputs_embeds=[prefix_embs, suffix_embs],
+        attention_mask=att_2d, ...
+    )
+
+    v_t = self.action_out_proj(suffix_out[:, <span class="num">-50</span>:])      <span class="cm"># [B, 50, 32]</span>
+
+    <span class="cm"># ④ 双重 MSE Loss</span>
+    loss_gt      = F.mse_loss(u_t, v_t)          <span class="cm"># 与真实速度场对齐</span>
+    loss_distill = F.mse_loss(v_t_teacher, v_t)  <span class="cm"># 向 Teacher 输出靠拢</span>
+
+    <span class="kw">return</span> loss_gt + loss_distill                 <span class="cm"># 等权相加（各 1.0）</span>
+</pre>
+
+<div class="warn">
+  <strong>注意：</strong><code>DistilledPi0Config</code> 中定义了 <code>loss_weight_gt</code> 和
+  <code>loss_weight_teacher</code> 字段，但当前 <code>forward()</code> 实现中
+  <b>并未使用这两个权重</b>——始终硬编码为等权相加。
+  如需调整比例，需手动修改 <code>pi0_pytorch.py:582-583</code>。
+  <span class="ref">pi0_pytorch.py:582</span>
+</div>
+
+<h3>9.5 训练循环集成</h3>
+<pre>
+<span class="cm"># train_pytorch.py:566-656 — 蒸馏训练主循环</span>
+<span class="kw">while</span> global_step &lt; config.num_train_steps:
+    <span class="kw">for</span> observation, actions <span class="kw">in</span> loader:
+
+        <span class="cm"># 更新学习率</span>
+        <span class="kw">for</span> pg <span class="kw">in</span> optim.param_groups:
+            pg[<span class="st">"lr"</span>] = lr_schedule(global_step)
+
+        <span class="cm"># 前向 + 蒸馏 Loss（teacher 在 forward 内部 no_grad 调用）</span>
+        loss = model(observation, actions, <span class="var">teacher</span>=teacher_model)
+
+        <span class="cm"># 反向 + 梯度裁剪 + 更新（仅 student 参数更新）</span>
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=<span class="num">1.0</span>)
+        optim.step()
+        optim.zero_grad(set_to_none=<span class="tp">True</span>)
+</pre>
+
+<h3>9.6 蒸馏 vs 标准训练对比</h3>
+<table>
+  <thead>
+    <tr><th>维度</th><th>标准训练（π₀）</th><th>蒸馏训练（Shallow-π）</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>框架</td><td>JAX / Flax NNX</td><td>PyTorch</td></tr>
+    <tr><td>Gemma 层数</td><td>18 层</td><td>6 层（33% 深度）</td></tr>
+    <tr><td>Loss</td><td>MSE(v_t, u_t)</td><td>MSE(v_t, u_t) + MSE(v_t, v_t_teacher)</td></tr>
+    <tr><td>Teacher</td><td>无</td><td>18 层 π₀，eval 模式冻结</td></tr>
+    <tr><td>初始化</td><td>预训练权重</td><td>从 Teacher 层下采样（均匀间隔 6 层）</td></tr>
+    <tr><td>Batch Size</td><td>32–256</td><td>64</td></tr>
+    <tr><td>训练步数</td><td>30,000–100,000</td><td>30,000</td></tr>
+    <tr><td>精度</td><td>bfloat16</td><td>float32</td></tr>
+    <tr><td>蒸馏类型</td><td>—</td><td>输出级（velocity field matching）</td></tr>
+    <tr><td>特征蒸馏</td><td>—</td><td>无（仅最终输出）</td></tr>
+  </tbody>
+</table>
+
+<h3>9.7 π₀.₅ 蒸馏配置</h3>
+<pre>
+<span class="cm"># training/config.py — pi05_libero_l06</span>
+TrainConfig(
+    name  = <span class="st">"pi05_libero_l06"</span>,
+    model = DistilledPi0Config(
+        pi05             = <span class="tp">True</span>,           <span class="cm"># 启用 AdaRMSNorm 调制</span>
+        teacher_config   = <span class="st">"pi05_libero"</span>,  <span class="cm"># Teacher 为完整 π₀.₅</span>
+        gemma_depth      = <span class="num">6</span>,
+        action_horizon   = <span class="num">10</span>,             <span class="cm"># 必须与 Teacher 一致！</span>
+        discrete_state_input = <span class="tp">False</span>,
+    ),
+    batch_size       = <span class="num">64</span>,
+    num_train_steps  = <span class="num">30_000</span>,
+    pytorch_training_precision = <span class="st">"float32"</span>,
+)
+</pre>
+<span class="ref">src/openpi/training/config.py:740-800</span>
+</section>
+
+<!-- ═══════════════════ 10. 张量速查 ═══════════════════ -->
+<section id="shapes">
+<h2>10. 完整张量形状速查表</h2>
+
+<table>
+  <thead>
+    <tr><th>阶段</th><th>操作</th><th>输入形状</th><th>输出形状</th><th>来源文件:行号</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3" style="color:var(--green)"><b>视觉编码</b></td>
+        <td>Patch Embedding (Conv2D)</td>
+        <td><code>[B,224,224,3]</code></td><td><code>[B,256,1152]</code></td>
+        <td>siglip.py:216</td></tr>
+    <tr><td>ViT 27层输出</td>
+        <td><code>[B,256,1152]</code></td><td><code>[B,256,1152]</code></td>
+        <td>siglip.py:230-289</td></tr>
+    <tr><td>×3 相机拼接后（embed_prefix）</td>
+        <td><code>[B,256,1152]×3</code></td><td><code>[B,768,1152]→[B,768,2048]</code></td>
+        <td>pi0.py:114</td></tr>
+    <tr><td rowspan="2" style="color:var(--blue)"><b>语言嵌入</b></td>
+        <td>Token → Embedding</td>
+        <td><code>[B,48] int</code></td><td><code>[B,48,2048]</code></td>
+        <td>gemma.py:135-155</td></tr>
+    <tr><td>Prefix 总拼接</td>
+        <td><code>[B,768,2048]+[B,48,2048]</code></td><td><code>[B,816,2048]</code></td>
+        <td>pi0.py:134</td></tr>
+    <tr><td rowspan="4" style="color:var(--yellow)"><b>动作嵌入</b></td>
+        <td>state_proj</td>
+        <td><code>[B,32]</code></td><td><code>[B,1,2048]</code></td>
+        <td>pi0.py:153</td></tr>
+    <tr><td>action_in_proj</td>
+        <td><code>[B,50,32]</code></td><td><code>[B,50,2048]</code></td>
+        <td>pi0.py:159</td></tr>
+    <tr><td>Time sincos embedding</td>
+        <td><code>[B]</code></td><td><code>[B,2048]→[B,50,2048]</code></td>
+        <td>pi0.py:161</td></tr>
+    <tr><td>Action-Time MLP → Suffix</td>
+        <td><code>[B,50,4096]</code></td><td><code>[B,51,2048]</code></td>
+        <td>pi0.py:173-183</td></tr>
+    <tr><td rowspan="2" style="color:var(--purple)"><b>注意力</b></td>
+        <td>合并序列</td>
+        <td><code>[B,816,2048]+[B,51,2048]</code></td><td><code>[B,867,2048]</code></td>
+        <td>gemma.py:401</td></tr>
+    <tr><td>QKV (GQA 8:1)</td>
+        <td><code>[B,867,2048]</code></td><td><code>[B,867,8,256]×3</code></td>
+        <td>gemma.py:183</td></tr>
+    <tr><td style="color:var(--cyan)"><b>注意力 logits</b></td>
+        <td>scaled dot-product</td>
+        <td><code>Q/K [B,867,8,256]</code></td><td><code>[B,1,8,867,867]</code></td>
+        <td>gemma.py:217</td></tr>
+    <tr><td style="color:var(--orange)"><b>FFN</b></td>
+        <td>GeGLU MLP</td>
+        <td><code>[B,867,2048]</code></td><td><code>→16384→[B,867,2048]</code></td>
+        <td>gemma.py:267-278</td></tr>
+    <tr><td rowspan="2" style="color:var(--red)"><b>输出 & Loss</b></td>
+        <td>action_out_proj</td>
+        <td><code>[B,50,2048]</code></td><td><code>[B,50,32]</code> = v_t</td>
+        <td>pi0.py:212</td></tr>
+    <tr><td>MSE Loss</td>
+        <td><code>[B,50,32]</code> (v_t-u_t)</td><td><code>[B,50]→scalar</code></td>
+        <td>pi0.py:214</td></tr>
+  </tbody>
+</table>
+
+<h3>关键超参与模型规模</h3>
+<div class="grid3">
+  <div class="card">
+    <h4>PaliGemma LLM（Gemma 2B）</h4>
+    <table>
+      <tr><td>d_model</td><td><code>2048</code></td></tr>
+      <tr><td>深度</td><td><code>18 层</code></td></tr>
+      <tr><td>FFN dim</td><td><code>16384</code></td></tr>
+      <tr><td>Heads</td><td><code>8 (Q) / 1 (KV)</code>&nbsp;GQA</td></tr>
+      <tr><td>head_dim</td><td><code>256</code></td></tr>
+      <tr><td>Vocab</td><td><code>257152</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Action Expert（Gemma 300M）</h4>
+    <table>
+      <tr><td>d_model</td><td><code>1024</code></td></tr>
+      <tr><td>深度</td><td><code>18 层</code>（共享 LLM）</td></tr>
+      <tr><td>独立权重</td><td>QKV proj, FFN</td></tr>
+      <tr><td>pi05 特有</td><td>AdaRMSNorm</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>SigLIP（So400m/14）</h4>
+    <table>
+      <tr><td>embed dim</td><td><code>1152</code></td></tr>
+      <tr><td>深度</td><td><code>27 层</code></td></tr>
+      <tr><td>Heads</td><td><code>16</code></td></tr>
+      <tr><td>Patch</td><td><code>14×14</code></td></tr>
+      <tr><td>Token 数</td><td><code>256</code> per img</td></tr>
+    </table>
+  </div>
+</div>
+</section>
+
+</main>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true, theme:'dark',
+  themeVariables:{
+    primaryColor:'#1f2937', primaryTextColor:'#c9d1d9',
+    primaryBorderColor:'#3b82f6', lineColor:'#6b7280',
+    secondaryColor:'#374151', tertiaryColor:'#1a2744',
+    background:'#0d1117', mainBkg:'#161b22',
+    nodeBorder:'#3b82f6', clusterBkg:'#1f2937',
+    titleColor:'#58a6ff', edgeLabelBackground:'#1f2937',
+  },
+  flowchart:{curve:'basis', padding:16, useMaxWidth:true},
+});
+</script>
+</body>
+</html>
